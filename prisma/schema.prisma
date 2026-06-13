@@ -1,0 +1,228 @@
+// Prisma 7 schema — uses the new `prisma-client` generator + driver adapter.
+// Generated client is emitted into src/generated/prisma (gitignored).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EmployeeStatus {
+  active
+  on_leave
+  inactive
+}
+ enum ProductStatus {
+  Active
+  Draft
+  Out_of_stock
+}
+
+enum CategoryStatus {
+  active
+  inactive
+}
+
+enum CustomerStatus {
+  active
+  vip
+  blocked
+  inactive
+}
+
+// Permission preset assigned to an employee by the admin.
+enum EmployeeAccess {
+  manager
+  staff
+}
+
+enum OrderStatus {
+  pending
+  processing
+  shipped
+  delivered
+  cancelled
+}
+
+enum PaymentStatus {
+  paid
+  cod
+  unpaid
+  refunded
+}
+
+enum NotifCategory {
+  orders
+  payments
+  users
+  system
+}
+
+enum NotifTone {
+  success
+  warning
+  error
+  info
+}
+
+model Customer {
+  id        String         @id @default(cuid())
+  name      String
+  email     String         @unique
+  // Set when a customer signs up for an account (they log in as role "user").
+  password  String         @default("")
+  phone     String         @default("")
+  status    CustomerStatus @default(active)
+  city      String         @default("")
+  state     String         @default("")
+  country   String         @default("")
+  // Account notification preferences.
+  notifyEmail Boolean      @default(true)
+  notifyPush  Boolean      @default(true)
+  notifySms   Boolean      @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  orders    Order[]
+
+  @@map("customers")
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount          String        @default("0")
+  paymentStatus   PaymentStatus @default(unpaid)
+  paymentMethod   String        @default("")
+  status          OrderStatus   @default(pending)
+  seller          String        @default("")
+  shippingAddress String        @default("")
+  items           OrderItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([customerId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId Int?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name      String
+  variant   String   @default("")
+  qty       Int      @default(1)
+  price     String   @default("0")
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Employee {
+  id         String         @id @default(cuid())
+  name       String
+  email      String         @unique
+  password   String
+  phone      String         @default("")
+  role       String         @default("")
+  department String         @default("")
+  // Permission preset the admin assigns (distinct from the `role` job title).
+  access     EmployeeAccess @default(staff)
+  // Admin-granted page/module keys (e.g. ["products","orders"]). Empty = use
+  // the `access` preset defaults.
+  permissions String[]      @default([])
+  status     EmployeeStatus @default(active)
+  salary     Int            @default(0)
+  city       String         @default("")
+  state      String         @default("")
+  country    String         @default("")
+  // Account notification preferences.
+  notifyEmail Boolean       @default(true)
+  notifyPush  Boolean       @default(true)
+  notifySms   Boolean       @default(false)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@map("employees")
+}
+
+model Notification {
+  id        String        @id @default(cuid())
+  category  NotifCategory @default(system)
+  tone      NotifTone     @default(info)
+  title     String
+  lines     String[]      @default([])
+  read      Boolean       @default(false)
+  createdAt DateTime      @default(now())
+
+  @@index([read])
+  @@map("notifications")
+}
+
+model  Product {
+  id            Int @id @default(autoincrement())
+  picture       String
+  name          String
+  sku           String
+  // Denormalized category name kept for the current product UI.
+  // Once the product form selects a real category, drop this and make
+  // `categoryId` required.
+  category      String
+  seller        String
+  price         String
+  stock         String
+  status       ProductStatus  @default(Active)
+  description  String
+
+  // Relations — optional so existing product creates keep working.
+  categoryId     Int?
+  categoryRel    Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategoryId  Int?
+  subcategoryRel Subcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+
+  orderItems     OrderItem[]
+
+  @@index([categoryId])
+  @@index([subcategoryId])
+}
+
+model Category {
+  id            Int            @id @default(autoincrement())
+  image         String         @default("")
+  name          String
+  slug          String         @unique
+  description   String         @default("")
+  status        CategoryStatus @default(active)
+
+  subcategories Subcategory[]
+  products      Product[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id          Int            @id @default(autoincrement())
+  image       String         @default("")
+  name        String
+  slug        String
+  description String         @default("")
+  status      CategoryStatus @default(active)
+
+  // Each subcategory belongs to one category; deleting the category
+  // removes its subcategories.
+  categoryId  Int
+  category    Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  products    Product[]
+
+  @@unique([categoryId, slug])
+  @@index([categoryId])
+  @@map("subcategories")
+}
