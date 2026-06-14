@@ -164,9 +164,9 @@ export function EmployeesView({ initialEmployees }: { initialEmployees: Employee
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <header className="flex items-center justify-between gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Employee Management</h1>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Employee Management</h1>
           <p className="text-sm text-muted-foreground">View and manage your team members.</p>
         </div>
         <Button onClick={openAdd}>
@@ -209,16 +209,16 @@ export function EmployeesView({ initialEmployees }: { initialEmployees: Employee
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+      <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="pl-4">Employee</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Department</TableHead>
+              <TableHead className="hidden lg:table-cell">Email</TableHead>
+              <TableHead className="hidden sm:table-cell">Role</TableHead>
+              <TableHead className="hidden xl:table-cell">Department</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Joined</TableHead>
+              <TableHead className="hidden md:table-cell">Joined</TableHead>
               <TableHead className="w-12 pr-4 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -233,13 +233,13 @@ export function EmployeesView({ initialEmployees }: { initialEmployees: Employee
                     <span className="font-medium">{emp.name}</span>
                   </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{emp.email}</TableCell>
-                <TableCell>{emp.role}</TableCell>
-                <TableCell className="text-muted-foreground">{emp.department}</TableCell>
+                <TableCell className="hidden text-muted-foreground lg:table-cell">{emp.email}</TableCell>
+                <TableCell className="hidden sm:table-cell">{emp.role}</TableCell>
+                <TableCell className="hidden text-muted-foreground xl:table-cell">{emp.department}</TableCell>
                 <TableCell>
                   <Badge className={cn('font-normal', statusMeta[emp.status].badge)}>{statusMeta[emp.status].label}</Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{emp.joined}</TableCell>
+                <TableCell className="hidden text-muted-foreground md:table-cell">{emp.joined}</TableCell>
                 <TableCell className="pr-4 text-right" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

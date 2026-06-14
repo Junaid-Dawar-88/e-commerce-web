@@ -28,7 +28,10 @@ export default async function AdminLayout({
     >
       <div className="flex h-screen bg-muted/40">
         <Sidebar user={user} initialTheme={theme} storeName={settings.storeName} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
+        {/* Top padding on mobile clears the fixed sidebar top bar (h-14). */}
+        <main className="flex-1 overflow-y-auto px-4 pb-4 pt-18 sm:px-6 sm:pb-6 lg:p-8 lg:pt-8">
+          {children}
+        </main>
       </div>
     </StoreProvider>
   )

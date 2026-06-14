@@ -24,6 +24,8 @@ import {
   Sun,
   Moon,
   ChevronsUpDown,
+  Menu,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -121,6 +123,23 @@ function useTheme(initialTheme: Theme = 'system') {
 const Sidebar = ({ user, initialTheme, storeName = 'My Store' }: SidebarProps) => {
   const pathname = usePathname()
   const { isDark, toggle } = useTheme(initialTheme)
+  // Drawer state for mobile (below `lg` the sidebar slides in over the content).
+  const [open, setOpen] = useState(false)
+
+  // Close the drawer on navigation.
+  useEffect(() => {
+    setOpen(false)
+  }, [pathname])
+
+  // Lock body scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
   const displayName = user?.name || 'User'
   const displayEmail = user?.email || ''
   const initial = displayName.charAt(0).toUpperCase()
@@ -140,22 +159,68 @@ const Sidebar = ({ user, initialTheme, storeName = 'My Store' }: SidebarProps) =
   const canNotifications = canAccessPath(role, modules, '/admin/notification')
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
-      {/* Brand */}
-      <div className="flex h-16 items-center gap-2.5 border-b px-4">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Store className="size-4.5" />
+    <>
+      {/* Mobile top bar — opens the drawer (hidden from `lg` up). */}
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b bg-sidebar px-4 text-sidebar-foreground lg:hidden">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Open menu"
+          className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-sidebar-accent/60"
+        >
+          <Menu className="size-5" />
+        </button>
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Store className="size-4" />
         </span>
-        <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-semibold">{storeName}</p>
-          <p className="truncate text-xs text-muted-foreground">Admin Panel</p>
-        </div>
+        <p className="truncate text-sm font-semibold">{storeName}</p>
         {canNotifications && (
           <div className="ml-auto">
             <NotificationBell />
           </div>
         )}
-      </div>
+      </header>
+
+      {/* Backdrop behind the open drawer (mobile only). */}
+      {open && (
+        <div
+          aria-hidden
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex h-screen w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform duration-200 ease-out lg:static lg:translate-x-0',
+          open ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        {/* Brand */}
+        <div className="flex h-16 items-center gap-2.5 border-b px-4">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Store className="size-4.5" />
+          </span>
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-sm font-semibold">{storeName}</p>
+            <p className="truncate text-xs text-muted-foreground">Admin Panel</p>
+          </div>
+          <div className="ml-auto flex items-center gap-1">
+            {canNotifications && (
+              <div className="hidden lg:block">
+                <NotificationBell />
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close menu"
+              className="flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-sidebar-accent/60 lg:hidden"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
@@ -264,6 +329,7 @@ const Sidebar = ({ user, initialTheme, storeName = 'My Store' }: SidebarProps) =
         </DropdownMenu>
       </div>
     </aside>
+    </>
   )
 }
 
