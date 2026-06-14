@@ -95,6 +95,8 @@ export default async function HomePage() {
 
   const featured = allProducts
     .filter((p) => p.status === "Active")
+    // Newest first so "Fresh in store" surfaces the latest arrivals.
+    .sort((a, b) => b.id - a.id)
     .slice(0, 8)
     .map((p) => ({
       id: p.id,
@@ -213,7 +215,7 @@ export default async function HomePage() {
               <div className="size-full overflow-hidden rounded-[1.7rem] border-2 border-background">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80"
+                  src="/shoes/shoe-2.jpeg"
                   alt="Featured shoes brand — sneakers"
                   className="size-full object-cover"
                 />
