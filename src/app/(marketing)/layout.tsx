@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { MobileNav } from "@/components/marketing/mobile-nav"
 import { getSettings } from "@/services/setting/setting"
 
 const footerLinks = [
@@ -66,7 +67,7 @@ export default async function MarketingLayout({
             </Link>
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
             <Button asChild variant="ghost" size="sm">
               <Link href="/login">Sign in</Link>
             </Button>
@@ -77,6 +78,9 @@ export default async function MarketingLayout({
               </Link>
             </Button>
           </div>
+
+          {/* Mobile: hamburger menu with the same links + actions. */}
+          <MobileNav />
         </div>
       </header>
 
