@@ -45,26 +45,18 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { StatCard } from '@/components/dashboard/stat-card'
-import { reports, periodMeta, type Period } from '@/app/admin/report/data'
+import { useMoney } from '@/components/store-provider'
+import { periodMeta, type Period, type Reports } from '@/app/admin/report/data'
 
 const trendConfig = {
   revenue: { label: 'Revenue', color: 'var(--color-chart-1)' },
   orders: { label: 'Orders', color: 'var(--color-chart-2)' },
 } satisfies ChartConfig
 
-const channelConfig = {
-  value: { label: 'Revenue' },
-  Direct: { label: 'Direct', color: 'var(--color-chart-1)' },
-  Organic: { label: 'Organic', color: 'var(--color-chart-2)' },
-  Referral: { label: 'Referral', color: 'var(--color-chart-3)' },
-  Social: { label: 'Social', color: 'var(--color-chart-4)' },
-  Email: { label: 'Email', color: 'var(--color-chart-5)' },
-} satisfies ChartConfig
+const aovOf = (revenue: number, orders: number) => (orders ? revenue / orders : 0)
 
-const usd = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
-
-export function ReportView() {
+export function ReportView({ reports }: { reports: Reports }) {
+  const usd = useMoney({ maximumFractionDigits: 0 })
   const [period, setPeriod] = useState<Period>('monthly')
   const data = reports[period]
   const meta = periodMeta[period]
@@ -74,14 +66,22 @@ export function ReportView() {
     [data]
   )
 
+  // Sellers are dynamic, so build the donut's colour/label config from the data.
+  const channelConfig = useMemo<ChartConfig>(() => {
+    const config: ChartConfig = { value: { label: 'Revenue' } }
+    for (const c of data.channels) {
+      config[c.name] = { label: c.name, color: c.fill }
+    }
+    return config
+  }, [data])
+
   function exportCsv() {
-    const header = ['Period', 'Revenue', 'Orders', 'AOV', 'Visitors', 'Refunds']
+    const header = ['Period', 'Revenue', 'Orders', 'AOV', 'Refunds']
     const rows = data.series.map((p) => [
       p.label,
       p.revenue,
       p.orders,
-      (p.revenue / p.orders).toFixed(2),
-      p.visitors,
+      aovOf(p.revenue, p.orders).toFixed(2),
       p.refunds,
     ])
     const csv = [header, ...rows].map((r) => r.join(',')).join('\n')
@@ -199,8 +199,8 @@ export function ReportView() {
 
         <Card>
           <CardHeader className="border-b">
-            <CardTitle>Revenue by Channel</CardTitle>
-            <CardDescription>Where sales came from</CardDescription>
+            <CardTitle>Revenue by Seller</CardTitle>
+            <CardDescription>Top sellers for this period</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer config={channelConfig} className="mx-auto h-[300px] w-full">
@@ -242,8 +242,6 @@ export function ReportView() {
                 <TableHead className="text-right">Revenue</TableHead>
                 <TableHead className="text-right">Orders</TableHead>
                 <TableHead className="text-right">AOV</TableHead>
-                <TableHead className="text-right">Visitors</TableHead>
-                <TableHead className="text-right">Conv.</TableHead>
                 <TableHead className="pr-6 text-right">Refunds</TableHead>
               </TableRow>
             </TableHeader>
@@ -254,17 +252,18 @@ export function ReportView() {
                   <TableCell className="text-right tabular-nums">{usd(p.revenue)}</TableCell>
                   <TableCell className="text-right tabular-nums">{p.orders}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {usd(p.revenue / p.orders)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {p.visitors.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {((p.orders / p.visitors) * 100).toFixed(1)}%
+                    {usd(aovOf(p.revenue, p.orders))}
                   </TableCell>
                   <TableCell className="pr-6 text-right tabular-nums">{p.refunds}</TableCell>
                 </TableRow>
               ))}
+              {data.series.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    No data for this period.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
             <TableFooter>
               <TableRow>
@@ -274,10 +273,6 @@ export function ReportView() {
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {data.series.reduce((s, p) => s + p.orders, 0)}
-                </TableCell>
-                <TableCell />
-                <TableCell className="text-right tabular-nums">
-                  {data.series.reduce((s, p) => s + p.visitors, 0).toLocaleString()}
                 </TableCell>
                 <TableCell />
                 <TableCell className="pr-6 text-right tabular-nums">

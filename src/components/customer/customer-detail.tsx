@@ -18,8 +18,17 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import type { Customer, CustomerStatus } from '@/app/admin/customer/data'
+import { useMoney } from '@/components/store-provider'
+import type { Customer, CustomerOrder, CustomerStatus } from '@/app/admin/customer/data'
 
 const statusMeta: Record<CustomerStatus, { label: string; badge: string }> = {
   active: { label: 'Active', badge: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
@@ -28,7 +37,23 @@ const statusMeta: Record<CustomerStatus, { label: string; badge: string }> = {
   inactive: { label: 'Inactive', badge: 'bg-muted text-muted-foreground' },
 }
 
-const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+const orderStatusBadge: Record<string, string> = {
+  pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  processing: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  shipped: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  delivered: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  cancelled: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+}
+
+const paymentBadge: Record<string, string> = {
+  paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  cod: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  unpaid: 'bg-muted text-muted-foreground',
+  refunded: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
 const initials = (name: string) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
 function Card({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -52,8 +77,15 @@ function Stat({ value, label, accent }: { value: string; label: string; accent?:
   )
 }
 
-export function CustomerDetail({ customer }: { customer: Customer }) {
+export function CustomerDetail({
+  customer,
+  orders,
+}: {
+  customer: Customer
+  orders: CustomerOrder[]
+}) {
   const router = useRouter()
+  const usd = useMoney()
   const [status, setStatus] = useState<CustomerStatus>(customer.status)
   const isBlocked = status === 'blocked'
 
@@ -166,6 +198,54 @@ export function CustomerDetail({ customer }: { customer: Customer }) {
           </Card>
         </div>
       </div>
+
+      {/* All orders placed by this customer */}
+      <Card title={`Orders (${orders.length})`} icon={<ShoppingBag className="size-4" />}>
+        {orders.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            This customer hasn&apos;t placed any orders yet.
+          </p>
+        ) : (
+          <div className="-mx-5 -mb-5 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-5">Order</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Items</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead className="pr-5">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((o) => (
+                  <TableRow
+                    key={o.id}
+                    onClick={() => router.push(`/admin/order/${o.id}`)}
+                    className="cursor-pointer hover:bg-accent/40"
+                  >
+                    <TableCell className="pl-5 font-medium tabular-nums">{o.ref}</TableCell>
+                    <TableCell className="text-muted-foreground">{o.date}</TableCell>
+                    <TableCell className="text-right tabular-nums">{o.items}</TableCell>
+                    <TableCell className="text-right tabular-nums">{usd(o.amount)}</TableCell>
+                    <TableCell>
+                      <Badge className={cn('font-normal', paymentBadge[o.paymentStatus])}>
+                        {cap(o.paymentStatus)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="pr-5">
+                      <Badge className={cn('font-normal', orderStatusBadge[o.status])}>
+                        {cap(o.status)}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
     </div>
   )
 }

@@ -149,6 +149,45 @@ async function main() {
     n++
   }
   console.log(`Seeded ${created} new products (${products.length - created} already present).`)
+
+  // Reviews — only seed when the table is empty so re-runs don't duplicate.
+  // Linked to real products by name where possible; customer names are
+  // denormalized (no account required to leave a demo review).
+  const reviewSeed: {
+    productName: string
+    customerName: string
+    rating: number
+    comment: string
+    status: 'approved' | 'pending' | 'reported' | 'hidden'
+  }[] = [
+    { productName: 'Classic Court Sneakers', customerName: 'Ayesha Khan', rating: 5, comment: 'Incredibly comfortable straight out of the box — wear them daily.', status: 'approved' },
+    { productName: 'Trail Running Shoes', customerName: 'Bilal Ahmed', rating: 4, comment: 'Great grip on muddy trails, though they run half a size small.', status: 'approved' },
+    { productName: 'Essential Cotton Tee', customerName: 'Fatima Noor', rating: 5, comment: 'Soft fabric and the fit is perfect after a wash.', status: 'pending' },
+    { productName: 'Fleece Pullover Hoodie', customerName: 'Usman Tariq', rating: 2, comment: 'Pilled badly after the second wash. Disappointed.', status: 'reported' },
+    { productName: 'Minimalist Watch', customerName: 'Hira Sheikh', rating: 5, comment: 'Looks far more expensive than it is. Lovely strap.', status: 'approved' },
+    { productName: 'Polarized Sunglasses', customerName: 'Zain Malik', rating: 3, comment: 'Lenses are good but the hinge feels flimsy.', status: 'pending' },
+    { productName: 'Denim Jacket', customerName: 'Sana Riaz', rating: 4, comment: 'Nice vintage wash, true to size.', status: 'hidden' },
+  ]
+
+  const reviewCount = await prisma.review.count()
+  if (reviewCount === 0) {
+    for (const r of reviewSeed) {
+      const product = await prisma.product.findFirst({ where: { name: r.productName } })
+      await prisma.review.create({
+        data: {
+          productId: product?.id ?? null,
+          productName: r.productName,
+          customerName: r.customerName,
+          rating: r.rating,
+          comment: r.comment,
+          status: r.status,
+        },
+      })
+    }
+    console.log(`Seeded ${reviewSeed.length} reviews.`)
+  } else {
+    console.log(`Reviews already present (${reviewCount}) — skipped.`)
+  }
 }
 
 main()

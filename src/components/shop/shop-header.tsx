@@ -9,9 +9,10 @@ import { useCart } from "@/components/shop/cart-provider"
 
 type ShopHeaderProps = {
   user: { name: string | null; role: string } | null
+  storeName?: string
 }
 
-export function ShopHeader({ user }: ShopHeaderProps) {
+export function ShopHeader({ user, storeName = 'Your Store' }: ShopHeaderProps) {
   const { count } = useCart()
 
   return (
@@ -21,7 +22,7 @@ export function ShopHeader({ user }: ShopHeaderProps) {
           <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground">
             <ShoppingBag className="size-4" />
           </span>
-          Your Store
+          {storeName}
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">

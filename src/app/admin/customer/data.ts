@@ -1,5 +1,7 @@
 // Customer view-model types. Real data should come from the database.
 
+import type { OrderStatus, PaymentStatus } from '@/app/admin/order/data'
+
 export type CustomerStatus = 'active' | 'vip' | 'blocked' | 'inactive'
 
 export type Customer = {
@@ -65,5 +67,72 @@ export function mapCustomer(row: CustomerRow): Customer {
     city: row.city,
     state: row.state,
     country: row.country,
+  }
+}
+
+// One of the customer's orders, summarised for the detail page's order list.
+export type CustomerOrder = {
+  id: string
+  ref: string
+  date: string
+  amount: number
+  items: number
+  status: OrderStatus
+  paymentStatus: PaymentStatus
+}
+
+// Customer row with the orders relation (and item counts) for the detail page.
+export type CustomerDetailRow = CustomerRow & {
+  orders: {
+    id: string
+    amount: string
+    status: OrderStatus
+    paymentStatus: PaymentStatus
+    createdAt: Date | string
+    items: { id: string }[]
+  }[]
+}
+
+// Build the full detail view-model: real order stats + the order list, plus
+// the customer's review count / average rating.
+export function mapCustomerDetail(
+  row: CustomerDetailRow,
+  reviews: { rating: number }[]
+): { customer: Customer; orders: CustomerOrder[] } {
+  const orders: CustomerOrder[] = row.orders.map((o) => {
+    const created = new Date(o.createdAt)
+    return {
+      id: o.id,
+      ref: `#${o.id.slice(-8).toUpperCase()}`,
+      date: created.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+      amount: Number(o.amount) || 0,
+      items: o.items.length,
+      status: o.status,
+      paymentStatus: o.paymentStatus,
+    }
+  })
+
+  const completed = row.orders.filter((o) => o.status === 'delivered').length
+  const cancelled = row.orders.filter((o) => o.status === 'cancelled').length
+  const pending = row.orders.length - completed - cancelled
+  const totalSpent = row.orders
+    .filter((o) => o.status !== 'cancelled')
+    .reduce((sum, o) => sum + (Number(o.amount) || 0), 0)
+  const avgRating = reviews.length
+    ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
+    : 0
+
+  return {
+    customer: {
+      ...mapCustomer(row),
+      orders: row.orders.length,
+      completed,
+      pending,
+      cancelled,
+      totalSpent,
+      reviews: reviews.length,
+      avgRating,
+    },
+    orders,
   }
 }

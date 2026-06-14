@@ -1,8 +1,11 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOutAction } from '@/app/actions/auth'
+import { setThemeAction } from '@/app/actions/theme'
+import type { Theme } from '@/lib/theme'
 import {
   LayoutDashboard,
   Package,
@@ -18,10 +21,22 @@ import {
   LogOut,
   Store,
   User,
+  Sun,
+  Moon,
+  ChevronsUpDown,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { canAccessPath, type Role } from '@/lib/permissions'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { NotificationBell } from '@/components/notification/notification-bell'
 
 type NavItem = { href: string; label: string; icon: LucideIcon }
 
@@ -32,6 +47,10 @@ type SidebarProps = {
     role?: string | null
     modules?: string[]
   }
+  // The user's saved theme, loaded from Neon by the admin layout.
+  initialTheme?: Theme
+  // The store name from Settings (falls back to "My Store").
+  storeName?: string
 }
 
 const groups: { heading: string; items: NavItem[] }[] = [
@@ -68,14 +87,40 @@ const groups: { heading: string; items: NavItem[] }[] = [
     heading: 'System',
     items: [
       { href: '/admin/notification', label: 'Notifications', icon: Bell },
-      { href: '/admin/account', label: 'Account', icon: User },
-      { href: '/admin/setting', label: 'Settings', icon: Settings },
     ],
   },
 ]
 
-const Sidebar = ({ user }: SidebarProps) => {
+// Light/dark toggle persisted to Neon (server-side, no browser storage).
+// `initialTheme` is the user's saved preference, read from the database.
+function useTheme(initialTheme: Theme = 'system') {
+  const [isDark, setIsDark] = useState(false)
+
+  useEffect(() => {
+    const dark =
+      initialTheme === 'dark' ||
+      (initialTheme === 'system' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches)
+    document.documentElement.classList.toggle('dark', dark)
+    setIsDark(dark)
+  }, [initialTheme])
+
+  const toggle = () => {
+    setIsDark((prev) => {
+      const next = !prev
+      document.documentElement.classList.toggle('dark', next)
+      // Persist to Neon (a no-op for the env-based admin).
+      void setThemeAction(next ? 'dark' : 'light')
+      return next
+    })
+  }
+
+  return { isDark, toggle }
+}
+
+const Sidebar = ({ user, initialTheme, storeName = 'My Store' }: SidebarProps) => {
   const pathname = usePathname()
+  const { isDark, toggle } = useTheme(initialTheme)
   const displayName = user?.name || 'User'
   const displayEmail = user?.email || ''
   const initial = displayName.charAt(0).toUpperCase()
@@ -90,17 +135,26 @@ const Sidebar = ({ user }: SidebarProps) => {
     }))
     .filter((group) => group.items.length > 0)
 
+  // Account is open to every panel user; Settings is permission-gated.
+  const canSettings = canAccessPath(role, modules, '/admin/setting')
+  const canNotifications = canAccessPath(role, modules, '/admin/notification')
+
   return (
     <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
       {/* Brand */}
-      <div className="flex h-16 items-center gap-2.5 border-b px-5">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+      <div className="flex h-16 items-center gap-2.5 border-b px-4">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Store className="size-4.5" />
         </span>
-        <div className="leading-tight">
-          <p className="text-sm font-semibold">My Store</p>
-          <p className="text-xs text-muted-foreground">Admin Panel</p>
+        <div className="min-w-0 leading-tight">
+          <p className="truncate text-sm font-semibold">{storeName}</p>
+          <p className="truncate text-xs text-muted-foreground">Admin Panel</p>
         </div>
+        {canNotifications && (
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
+        )}
       </div>
 
       {/* Nav */}
@@ -141,26 +195,73 @@ const Sidebar = ({ user }: SidebarProps) => {
         ))}
       </nav>
 
-      {/* User / logout */}
+      {/* User menu */}
       <div className="border-t p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <span className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-            {initial}
-          </span>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-sm font-medium">{displayName}</p>
-            <p className="truncate text-xs text-muted-foreground">{displayEmail}</p>
-          </div>
-          <form action={signOutAction} className="contents">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
-              type="submit"
-              aria-label="Log out"
-              className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-sidebar-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <LogOut className="size-4" />
+              <span className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                {initial}
+              </span>
+              <div className="min-w-0 flex-1 leading-tight">
+                <p className="truncate text-sm font-medium">{displayName}</p>
+                <p className="truncate text-xs text-muted-foreground">{displayEmail}</p>
+              </div>
+              <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
             </button>
-          </form>
-        </div>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent
+            align="end"
+            side="top"
+            sideOffset={8}
+            className="w-56"
+          >
+            <DropdownMenuLabel className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">{displayName}</span>
+              <span className="truncate text-xs font-normal text-muted-foreground">{displayEmail}</span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem asChild>
+              <Link href="/admin/account">
+                <User className="size-4" /> Account
+              </Link>
+            </DropdownMenuItem>
+
+            {canSettings && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin/setting">
+                  <Settings className="size-4" /> Settings
+                </Link>
+              </DropdownMenuItem>
+            )}
+
+            {/* Keep the menu open after toggling so the change is visible. */}
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                toggle()
+              }}
+            >
+              {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+              {isDark ? 'Light mode' : 'Dark mode'}
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            <form action={signOutAction}>
+              <DropdownMenuItem asChild variant="destructive">
+                <button type="submit" className="w-full">
+                  <LogOut className="size-4" /> Log out
+                </button>
+              </DropdownMenuItem>
+            </form>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   )

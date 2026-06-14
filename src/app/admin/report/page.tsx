@@ -1,6 +1,9 @@
 import { ReportView } from '@/components/report/report-view'
+import { getReportData } from '@/services/report/report'
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+  const reports = await getReportData()
+
   return (
     <div className="flex flex-col gap-6">
       <header>
@@ -10,7 +13,7 @@ export default function ReportsPage() {
         </p>
       </header>
 
-      <ReportView />
+      <ReportView reports={reports} />
     </div>
   )
 }

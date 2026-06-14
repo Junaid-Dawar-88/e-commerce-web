@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { useMoney } from '@/components/store-provider'
 import { products as seedProducts, type Product, type ProductStatus } from '@/app/admin/product/data'
 import { addProduct, deleteProduct, getProducts, updateProduct } from '@/app/api/product-helper/product-helper'
 import ProductModal, { type NewProduct } from './product-modal'
@@ -40,15 +41,13 @@ const statusMeta: Record<ProductStatus, { label: string; className: string }> = 
   Out_of_stock: { label: 'Out of Stock', className: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' },
 }
 
-const usd = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-
 // `picture` may hold a real image (data/URL) or a legacy emoji/text value.
 const isImageSrc = (s: string) =>
   /^(data:image\/|https?:\/\/|\/)/.test(s)
 
 export function ProductsTable({ className }: { className?: string }) {
   const router = useRouter()
+  const usd = useMoney()
   const searchParams = useSearchParams()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<ProductStatus | 'all'>('all')

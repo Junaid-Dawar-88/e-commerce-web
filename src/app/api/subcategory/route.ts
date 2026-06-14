@@ -11,7 +11,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const authz = await authorize("category:write");
+  const authz = await authorize("categories:create");
   if (!authz.ok) return authz.response;
 
   const body = await req.json();

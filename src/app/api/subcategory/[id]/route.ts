@@ -9,7 +9,7 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authz = await authorize("category:write");
+  const authz = await authorize("categories:update");
   if (!authz.ok) return authz.response;
 
   const { id } = await params;
@@ -28,7 +28,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authz = await authorize("category:write");
+  const authz = await authorize("categories:delete");
   if (!authz.ok) return authz.response;
 
   const { id } = await params;

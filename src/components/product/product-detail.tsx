@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useMoney } from '@/components/store-provider'
 import { deleteProduct } from '@/app/api/product-helper/product-helper'
 import type { ProductStatus } from '@/types/product'
 
@@ -41,7 +42,6 @@ const statusMeta: Record<ProductStatus, { label: string; className: string }> = 
   Out_of_stock: { label: 'Out of Stock', className: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' },
 }
 
-const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 const isImageSrc = (s: string) => /^(data:image\/|https?:\/\/|\/)/.test(s)
 
 function Card({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -70,6 +70,7 @@ function Field({ label, icon, children }: { label: string; icon: React.ReactNode
 
 export function ProductDetail({ product }: { product: ProductDetailData }) {
   const router = useRouter()
+  const usd = useMoney()
   const stock = Number(product.stock)
   const status = statusMeta[product.status]
 

@@ -6,7 +6,7 @@ import {
 } from "@/services/notification/notification";
 
 export async function GET() {
-  const authz = await authorize("notification:read");
+  const authz = await authorize("notifications:view");
   if (!authz.ok) return authz.response;
 
   const notifications = await getNotifications();
@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const authz = await authorize("notification:write");
+  const authz = await authorize("notifications:create");
   if (!authz.ok) return authz.response;
 
   const body = await req.json();
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
 // Mark every notification as read.
 export async function PATCH() {
-  const authz = await authorize("notification:write");
+  const authz = await authorize("notifications:update");
   if (!authz.ok) return authz.response;
 
   const notifications = await markAllNotificationsRead();

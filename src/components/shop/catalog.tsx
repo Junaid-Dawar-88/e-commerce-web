@@ -9,12 +9,20 @@ import { ProductCard, type StoreProduct } from "@/components/shop/product-card"
 export function Catalog({
   products,
   categories,
+  initialCategory,
 }: {
   products: StoreProduct[]
   categories: string[]
+  initialCategory?: string
 }) {
   const [query, setQuery] = React.useState("")
-  const [category, setCategory] = React.useState<string>("all")
+  // Honour a ?category= deep link (e.g. from the landing-page category tiles),
+  // but only if it's a real category — otherwise fall back to showing everything.
+  const [category, setCategory] = React.useState<string>(() =>
+    initialCategory && categories.includes(initialCategory)
+      ? initialCategory
+      : "all"
+  )
 
   const filtered = products.filter((p) => {
     const matchesCategory = category === "all" || p.category === category
@@ -87,8 +95,8 @@ function CategoryChip({
       onClick={onClick}
       className={
         active
-          ? "rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground"
-          : "rounded-full border border-border px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          ? "rounded-full bg-linear-to-r from-brand to-brand-2 px-3 py-1 text-sm font-medium text-white shadow-sm shadow-brand/25"
+          : "rounded-full border border-border px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground"
       }
     >
       {label}

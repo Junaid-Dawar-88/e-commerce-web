@@ -7,17 +7,17 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
-import { revenueData } from '@/app/admin/dashboard/data'
+import type { RevenuePoint } from '@/app/admin/dashboard/data'
 
 const config = {
   revenue: { label: 'Revenue', color: 'var(--color-chart-1)' },
   orders: { label: 'Orders', color: 'var(--color-chart-2)' },
 } satisfies ChartConfig
 
-export function RevenueChart() {
+export function RevenueChart({ data }: { data: RevenuePoint[] }) {
   return (
     <ChartContainer config={config} className="h-[280px] w-full">
-      <AreaChart data={revenueData} margin={{ left: 4, right: 12, top: 8 }}>
+      <AreaChart data={data} margin={{ left: 4, right: 12, top: 8 }}>
         <defs>
           <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.4} />

@@ -3,22 +3,17 @@
 
 export type Role = "admin" | "manager" | "staff" | "user";
 
-// resource:action permissions (used to guard API routes).
-export type Permission =
-  | "product:read"
-  | "product:write"
-  | "category:read"
-  | "category:write"
-  | "customer:read"
-  | "customer:write"
-  | "employee:read"
-  | "employee:write"
-  | "order:read"
-  | "order:write"
-  | "notification:read"
-  | "notification:write";
+// The levels of access an admin can grant per page:
+//   view   → open the page (read).
+//   create → add new records.
+//   update → edit existing records.
+//   delete → remove records.
+export type Action = "view" | "create" | "update" | "delete";
 
-// A "module" = an admin page the admin can grant per-employee.
+// Write actions in display order (view is implicit and always listed first).
+export const WRITE_ACTIONS: Action[] = ["create", "update", "delete"];
+
+// A "module" = an admin page whose access the admin grants per-employee.
 export type ModuleKey =
   | "products"
   | "categories"
@@ -31,54 +26,108 @@ export type ModuleKey =
   | "reviews"
   | "settings";
 
-// Each module: its label, the page it unlocks, and the API permissions it grants.
+// A capability/permission token used both to store grants and to guard API
+// routes, e.g. "products:create". `view` is the read permission.
+export type Permission = `${ModuleKey}:${Action}`;
+
+// Each module: label, the page it unlocks, and the write actions it supports
+// (beyond viewing). Read-only pages (Reports/Payments) support none; Settings
+// only supports saving (update).
 export const MODULES: {
   key: ModuleKey;
   label: string;
   page: string;
-  permissions: Permission[];
+  actions: Action[];
 }[] = [
-  { key: "products", label: "Products", page: "/admin/product", permissions: ["product:read", "product:write"] },
-  { key: "categories", label: "Categories", page: "/admin/categories", permissions: ["category:read", "category:write"] },
-  { key: "customers", label: "Customers", page: "/admin/customer", permissions: ["customer:read", "customer:write"] },
-  { key: "orders", label: "Orders", page: "/admin/order", permissions: ["order:read", "order:write"] },
-  { key: "employees", label: "Employees", page: "/admin/employee", permissions: ["employee:read", "employee:write"] },
-  { key: "notifications", label: "Notifications", page: "/admin/notification", permissions: ["notification:read", "notification:write"] },
-  { key: "reports", label: "Reports", page: "/admin/report", permissions: [] },
-  { key: "payments", label: "Payments", page: "/admin/payment", permissions: [] },
-  { key: "reviews", label: "Reviews", page: "/admin/reviews", permissions: [] },
-  { key: "settings", label: "Settings", page: "/admin/setting", permissions: [] },
+  { key: "products", label: "Products", page: "/admin/product", actions: ["create", "update", "delete"] },
+  { key: "categories", label: "Categories", page: "/admin/categories", actions: ["create", "update", "delete"] },
+  { key: "customers", label: "Customers", page: "/admin/customer", actions: ["create", "update", "delete"] },
+  { key: "orders", label: "Orders", page: "/admin/order", actions: ["create", "update", "delete"] },
+  { key: "employees", label: "Employees", page: "/admin/employee", actions: ["create", "update", "delete"] },
+  { key: "notifications", label: "Notifications", page: "/admin/notification", actions: ["create", "update", "delete"] },
+  { key: "reports", label: "Reports", page: "/admin/report", actions: [] },
+  { key: "payments", label: "Payments", page: "/admin/payment", actions: [] },
+  { key: "reviews", label: "Reviews", page: "/admin/reviews", actions: ["create", "update", "delete"] },
+  { key: "settings", label: "Settings", page: "/admin/setting", actions: ["update"] },
 ];
 
 export const ALL_MODULES: ModuleKey[] = MODULES.map((m) => m.key);
+
+const isModuleKey = (k: string): k is ModuleKey =>
+  ALL_MODULES.includes(k as ModuleKey);
+
+function moduleActions(key: ModuleKey): Action[] {
+  return MODULES.find((m) => m.key === key)?.actions ?? [];
+}
+
+// Does this module expose write actions at all? (Reports/Payments don't.)
+export function moduleHasActions(key: ModuleKey): boolean {
+  return moduleActions(key).length > 0;
+}
+
+// All capability tokens for a module: view + each of its write actions.
+function tokensFor(key: ModuleKey): string[] {
+  return [`${key}:view`, ...moduleActions(key).map((a) => `${key}:${a}`)];
+}
+
+// Expand a stored grant list into canonical tokens, upgrading legacy formats:
+//   bare key "products"  → full access (view + all actions)
+//   "products:manage"    → full access (the previous single write flag)
+// and ensuring any granted action also implies "view".
+export function normalizeGrants(stored?: string[] | null): string[] {
+  const out = new Set<string>();
+  for (const raw of stored ?? []) {
+    const [key, cap] = raw.split(":");
+    if (!isModuleKey(key)) continue;
+    if (cap === "view") {
+      out.add(`${key}:view`);
+    } else if (!cap || cap === "manage") {
+      tokensFor(key).forEach((t) => out.add(t));
+    } else if ((moduleActions(key) as string[]).includes(cap)) {
+      out.add(`${key}:${cap}`);
+      out.add(`${key}:view`); // an action implies the ability to view the page
+    }
+  }
+  return [...out];
+}
 
 // Pages every panel user (admin/manager/staff) can always open.
 const ALWAYS_PAGES = ["/admin/dashboard", "/admin/account"];
 
 // Optional starting templates the admin can apply with one click in Settings.
-// These are NOT auto-granted: a new employee starts with no page access until
-// the admin grants pages from Settings → Users & Roles.
+// These are NOT auto-granted: a new employee starts with no access until the
+// admin grants it from Settings → Users & Roles.
 export const DEFAULT_MODULES: Record<"manager" | "staff", ModuleKey[]> = {
   manager: ["products", "categories", "customers", "orders", "notifications", "reports", "payments", "reviews"],
   staff: ["products", "orders", "notifications"],
 };
 
-// Permissions a signed-up customer gets (browse products + own orders).
-const USER_PERMISSIONS: Permission[] = ["product:read", "order:read", "order:write"];
+// Expand a role preset into full-access tokens for its listed modules.
+export function presetGrants(access: "manager" | "staff"): string[] {
+  return DEFAULT_MODULES[access].flatMap(tokensFor);
+}
 
-// Resolve the modules a user effectively has.
+// Full access to every module — the "Grant all" shortcut.
+export function fullAccessGrants(): string[] {
+  return ALL_MODULES.flatMap(tokensFor);
+}
+
+// What a signed-up customer (role "user") can do: browse products, place and
+// view their own orders.
+const USER_GRANTS = new Set<string>([
+  "products:view",
+  "orders:view",
+  "orders:create",
+]);
+
+// Resolve the capability tokens a user effectively holds. The result is stored
+// on the session (`user.modules`) and read by the guards below.
 export function effectiveModules(
   role: Role | undefined | null,
   stored?: string[] | null
-): ModuleKey[] {
-  if (role === "admin") return ALL_MODULES;
-  if (role === "manager" || role === "staff") {
-    // Only what the admin has explicitly granted — no implicit preset.
-    // A brand-new employee therefore has no page access until granted.
-    return (stored ?? []).filter((m): m is ModuleKey =>
-      ALL_MODULES.includes(m as ModuleKey)
-    );
-  }
+): string[] {
+  if (role === "admin") return fullAccessGrants();
+  if (role === "manager" || role === "staff") return normalizeGrants(stored);
   return [];
 }
 
@@ -102,21 +151,30 @@ export function canAccessPath(
   }
   const mod = moduleForPath(path);
   if (!mod) return false; // unknown admin path → only admin (handled above)
-  return (modules ?? []).includes(mod);
+  // normalizeGrants guarantees a "view" token whenever any action is granted.
+  return new Set(normalizeGrants(modules)).has(`${mod}:view`);
 }
 
-// Does this user hold the given API permission?
+// Core check: may this user perform `action` on `key`?
+export function can(
+  role: Role | undefined | null,
+  modules: string[] | undefined | null,
+  key: ModuleKey,
+  action: Action
+): boolean {
+  if (!role) return false;
+  if (role === "admin") return true;
+  if (role === "user") return USER_GRANTS.has(`${key}:${action}`);
+  return new Set(normalizeGrants(modules)).has(`${key}:${action}`);
+}
+
+// Does this user hold the given API permission (e.g. "products:create")?
 export function permissionAllowed(
   role: Role | undefined | null,
   modules: string[] | undefined | null,
   permission: Permission
 ): boolean {
-  if (!role) return false;
-  if (role === "admin") return true;
-  if (role === "user") return USER_PERMISSIONS.includes(permission);
-  // manager / staff — derive from granted modules.
-  const granted = modules ?? [];
-  return MODULES.some(
-    (m) => granted.includes(m.key) && m.permissions.includes(permission)
-  );
+  const [key, action] = permission.split(":") as [ModuleKey, Action];
+  if (!isModuleKey(key)) return false;
+  return can(role, modules, key, action);
 }

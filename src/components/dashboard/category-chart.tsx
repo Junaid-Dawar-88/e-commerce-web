@@ -7,17 +7,17 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
-import { categoryData } from '@/app/admin/dashboard/data'
+import type { CategoryPoint } from '@/app/admin/dashboard/data'
 
 const config = {
   sales: { label: 'Sales' },
 } satisfies ChartConfig
 
-export function CategoryChart() {
+export function CategoryChart({ data }: { data: CategoryPoint[] }) {
   return (
     <ChartContainer config={config} className="h-[280px] w-full">
       <BarChart
-        data={categoryData}
+        data={data}
         layout="vertical"
         margin={{ left: 8, right: 16 }}
       >

@@ -98,11 +98,18 @@ export default function FeaturesPage() {
       <section className="relative overflow-hidden">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_50%_at_50%_0%,color-mix(in_oklch,var(--primary),transparent_88%),transparent)]"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_50%_at_50%_0%,color-mix(in_oklch,var(--primary),transparent_85%),transparent)]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(70%_60%_at_50%_0%,black,transparent)] bg-[linear-gradient(to_right,color-mix(in_oklch,var(--foreground),transparent_94%)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklch,var(--foreground),transparent_94%)_1px,transparent_1px)] bg-[size:44px_44px]"
         />
         <div className="mx-auto max-w-3xl px-6 py-20 text-center md:py-28">
-          <Badge variant="secondary" className="mb-6">
-            <Sparkles className="fill-current" />
+          <Badge
+            variant="secondary"
+            className="mb-6 gap-1.5 border border-border/60 bg-background/60 backdrop-blur-sm"
+          >
+            <Sparkles className="size-3 fill-current text-primary" />
             Built for shoppers and sellers
           </Badge>
           <h1 className="text-balance text-4xl font-bold tracking-tight md:text-5xl">
@@ -116,22 +123,29 @@ export default function FeaturesPage() {
       </section>
 
       {/* For shoppers */}
-      <section className="mx-auto max-w-6xl px-6 pb-20">
+      <section className="reveal mx-auto max-w-6xl px-6 pb-20">
         <div className="mb-10">
-          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+          <Badge variant="secondary" className="mb-3">
             For shoppers
+          </Badge>
+          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+            A storefront that gets out of the way
           </h2>
           <p className="mt-2 text-muted-foreground">
-            A storefront that gets out of the way.
+            Everything a shopper needs, nothing they don&apos;t.
           </p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {shopperFeatures.map((feature) => (
             <Card
               key={feature.title}
-              className="group p-6 transition-colors hover:border-foreground/20"
+              className="group relative overflow-hidden p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-foreground/20"
             >
-              <div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary transition-transform group-hover:scale-105">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--primary),transparent_82%),transparent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+              />
+              <div className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-110">
                 <feature.icon className="size-5" />
               </div>
               <h3 className="mt-5 font-semibold">{feature.title}</h3>

@@ -7,16 +7,16 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
-import { trafficData } from '@/app/admin/dashboard/data'
+import type { OrdersByDayPoint } from '@/app/admin/dashboard/data'
 
 const config = {
-  visitors: { label: 'Visitors', color: 'var(--color-chart-5)' },
+  orders: { label: 'Orders', color: 'var(--color-chart-5)' },
 } satisfies ChartConfig
 
-export function TrafficChart() {
+export function WeeklyOrdersChart({ data }: { data: OrdersByDayPoint[] }) {
   return (
     <ChartContainer config={config} className="h-[160px] w-full">
-      <BarChart data={trafficData} margin={{ top: 4 }}>
+      <BarChart data={data} margin={{ top: 4 }}>
         <XAxis
           dataKey="day"
           tickLine={false}
@@ -28,7 +28,7 @@ export function TrafficChart() {
           cursor={false}
           content={<ChartTooltipContent hideLabel />}
         />
-        <Bar dataKey="visitors" fill="var(--color-visitors)" radius={[6, 6, 0, 0]} />
+        <Bar dataKey="orders" fill="var(--color-orders)" radius={[6, 6, 0, 0]} />
       </BarChart>
     </ChartContainer>
   )

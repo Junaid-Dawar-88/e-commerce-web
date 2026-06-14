@@ -7,7 +7,7 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authz = await authorize("customer:write");
+  const authz = await authorize("customers:update");
   if (!authz.ok) return authz.response;
 
   const { id } = await params;
@@ -20,7 +20,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authz = await authorize("customer:write");
+  const authz = await authorize("customers:delete");
   if (!authz.ok) return authz.response;
 
   const { id } = await params;

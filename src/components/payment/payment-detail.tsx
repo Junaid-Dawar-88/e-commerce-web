@@ -13,7 +13,9 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useMoney, useStore } from '@/components/store-provider'
 import { printReceipt, downloadReceiptPdf } from '@/components/payment/receipt-dialog'
+import { updateOrder } from '@/app/api/order-helper/order-helper'
 import type { Payment, PaymentStatus } from '@/app/admin/payment/data'
 
 const statusMeta: Record<PaymentStatus, { label: string; badge: string }> = {
@@ -22,8 +24,6 @@ const statusMeta: Record<PaymentStatus, { label: string; badge: string }> = {
   failed: { label: 'Failed', badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' },
   refunded: { label: 'Refunded', badge: 'bg-violet-500/10 text-violet-600 dark:text-violet-400' },
 }
-
-const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
@@ -35,8 +35,24 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 }
 
 export function PaymentDetail({ payment }: { payment: Payment }) {
+  const usd = useMoney()
+  const store = useStore()
   const [status, setStatus] = useState<PaymentStatus>(payment.status)
+  const [refunding, setRefunding] = useState(false)
   const current: Payment = { ...payment, status }
+
+  // Refunds persist to the underlying order's payment status in Neon.
+  async function refund() {
+    setStatus('refunded')
+    setRefunding(true)
+    try {
+      await updateOrder(payment.id, { paymentStatus: 'refunded' })
+    } catch {
+      setStatus(payment.status) // revert on failure
+    } finally {
+      setRefunding(false)
+    }
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -54,16 +70,16 @@ export function PaymentDetail({ payment }: { payment: Payment }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => printReceipt(current)}>
+          <Button variant="outline" onClick={() => printReceipt(current, store)}>
             <Printer className="size-4" /> Print
           </Button>
-          <Button variant="outline" onClick={() => downloadReceiptPdf(current)}>
+          <Button variant="outline" onClick={() => downloadReceiptPdf(current, store)}>
             <Download className="size-4" /> Export PDF
           </Button>
           <Button
             variant="destructive"
-            disabled={status === 'refunded'}
-            onClick={() => setStatus('refunded')}
+            disabled={status === 'refunded' || refunding}
+            onClick={refund}
           >
             <RotateCcw className="size-4" /> Refund
           </Button>

@@ -2,20 +2,50 @@ import Link from "next/link"
 import { ArrowRight, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { getSettings } from "@/services/setting/setting"
 
-export default function MarketingLayout({
+const footerLinks = [
+  {
+    title: "Shop",
+    links: [
+      { label: "All products", href: "/shop" },
+      { label: "Featured", href: "/#featured" },
+      { label: "Pricing", href: "/pricing" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "Features", href: "/features" },
+      { label: "Contact", href: "/contact" },
+      { label: "Sign in", href: "/login" },
+    ],
+  },
+  {
+    title: "Support",
+    links: [
+      { label: "Help center", href: "/contact" },
+      { label: "Order tracking", href: "/shop" },
+      { label: "Returns", href: "/contact" },
+    ],
+  },
+]
+
+export default async function MarketingLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const { storeName } = await getSettings()
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold">
-            <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <span className="grid size-7 place-items-center rounded-lg bg-linear-to-br from-brand to-brand-2 text-white shadow-sm shadow-brand/30">
               <Sparkles className="size-4" />
             </span>
-            Your Store
+            {storeName}
           </Link>
 
           <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
@@ -50,15 +80,45 @@ export default function MarketingLayout({
       {children}
 
       {/* Footer */}
-      <footer className="border-t border-border/60">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-muted-foreground sm:flex-row">
-          <div className="flex items-center gap-2 font-medium text-foreground">
-            <span className="grid size-6 place-items-center rounded-md bg-primary text-primary-foreground">
-              <Sparkles className="size-3.5" />
-            </span>
-            Your Store
+      <footer className="border-t border-border/60 bg-muted/20">
+        <div className="mx-auto grid max-w-6xl gap-10 px-6 py-14 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="sm:col-span-2 lg:col-span-1">
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+              <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground">
+                <Sparkles className="size-4" />
+              </span>
+              {storeName}
+            </Link>
+            <p className="mt-4 max-w-xs text-sm text-muted-foreground">
+              A modern storefront with curated products, fast checkout, and
+              reliable delivery.
+            </p>
           </div>
-          <p>© 2026 Your Store. All rights reserved.</p>
+
+          {footerLinks.map((col) => (
+            <div key={col.title}>
+              <h3 className="text-sm font-semibold">{col.title}</h3>
+              <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
+                {col.links.map((link) => (
+                  <li key={link.label}>
+                    <Link
+                      href={link.href}
+                      className="transition-colors hover:text-foreground"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-border/60">
+          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-6 text-sm text-muted-foreground sm:flex-row">
+            <p>© 2026 {storeName}. All rights reserved.</p>
+            <p>Built for shoppers and the teams behind them.</p>
+          </div>
         </div>
       </footer>
     </div>

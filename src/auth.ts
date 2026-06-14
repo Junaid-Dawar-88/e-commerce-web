@@ -5,9 +5,24 @@ import type { Role } from '@/lib/permissions'
 import { effectiveModules } from '@/lib/permissions'
 import { verifyPassword } from '@/lib/password'
 import { authConfig } from '@/auth.config'
+import { logAudit } from '@/services/audit/audit'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  events: {
+    // Record panel sign-ins to the audit trail. Storefront customers (role
+    // "user") are skipped to keep the admin log focused on staff activity.
+    async signIn({ user }) {
+      const role = (user as { role?: string }).role
+      if (role === 'admin' || role === 'manager' || role === 'staff') {
+        await logAudit({
+          action: 'Signed in',
+          category: 'auth',
+          actor: { name: user.name, email: user.email, role },
+        })
+      }
+    },
+  },
   providers: [
     Credentials({
       credentials: {

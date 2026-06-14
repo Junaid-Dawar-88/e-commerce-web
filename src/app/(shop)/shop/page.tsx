@@ -13,7 +13,12 @@ export const metadata: Metadata = {
 // Always reflect the latest catalog/stock from the database.
 export const dynamic = "force-dynamic"
 
-export default async function ShopPage() {
+export default async function ShopPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>
+}) {
+  const { category: initialCategory } = await searchParams
   const products = await getProducts()
 
   // Only surface products that are live for shoppers.
@@ -46,7 +51,11 @@ export default async function ShopPage() {
           No products are available yet. Please check back soon.
         </div>
       ) : (
-        <Catalog products={storeProducts} categories={categories} />
+        <Catalog
+          products={storeProducts}
+          categories={categories}
+          initialCategory={initialCategory}
+        />
       )}
     </div>
   )

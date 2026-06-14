@@ -6,7 +6,7 @@ import {
 } from "@/services/order/order";
 
 export async function GET() {
-  const authz = await authorize("order:read");
+  const authz = await authorize("orders:view");
   if (!authz.ok) return authz.response;
 
   // Customers only see their own orders; staff/admin see all.
@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const authz = await authorize("order:write");
+  const authz = await authorize("orders:create");
   if (!authz.ok) return authz.response;
 
   const body = await req.json();

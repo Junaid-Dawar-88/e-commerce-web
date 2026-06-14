@@ -19,6 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useMoney } from '@/components/store-provider'
 import type { Employee, EmployeeStatus } from '@/app/admin/employee/data'
 
 const statusMeta: Record<EmployeeStatus, { label: string; badge: string }> = {
@@ -27,7 +28,6 @@ const statusMeta: Record<EmployeeStatus, { label: string; badge: string }> = {
   inactive: { label: 'Inactive', badge: 'bg-muted text-muted-foreground' },
 }
 
-const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 const initials = (name: string) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
 function Card({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -44,6 +44,7 @@ function Card({ title, icon, children }: { title: string; icon: React.ReactNode;
 
 export function EmployeeDetail({ employee }: { employee: Employee }) {
   const router = useRouter()
+  const usd = useMoney()
   const [status, setStatus] = useState<EmployeeStatus>(employee.status)
   const isInactive = status === 'inactive'
 

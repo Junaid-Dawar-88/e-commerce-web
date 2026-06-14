@@ -23,6 +23,9 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-3: var(--brand-3);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -73,6 +76,10 @@
   --chart-4: oklch(0.65 0.22 16);
   --chart-5: oklch(0.72 0.16 158);
   --radius: 0.625rem;
+  /* Brand accents — violet → fuchsia → cyan. Drive the landing-page mesh. */
+  --brand: oklch(0.58 0.24 295);
+  --brand-2: oklch(0.66 0.27 348);
+  --brand-3: oklch(0.74 0.14 210);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -107,6 +114,10 @@
   --chart-3: oklch(0.79 0.15 70);
   --chart-4: oklch(0.68 0.2 16);
   --chart-5: oklch(0.74 0.15 158);
+  /* Slightly brighter accents so the mesh glows against the dark canvas. */
+  --brand: oklch(0.64 0.25 295);
+  --brand-2: oklch(0.7 0.27 348);
+  --brand-3: oklch(0.78 0.14 210);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -126,6 +137,94 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ── Landing-page brand canvas ─────────────────────────────────────────────
+   A layered "aurora" mesh: several large radial glows in the brand hues blend
+   over the page background. `--in-oklch` guards the interpolation space for
+   pre-2024 browsers (see globals fallback below). */
+:root {
+  --in-oklch: ;
+}
+@supports (background: radial-gradient(in oklch, white, black)) {
+  :root {
+    --in-oklch: in oklch;
+  }
+}
+
+.aurora {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(
+      42% 55% at 18% 12% var(--in-oklch),
+      color-mix(in oklab, var(--brand), transparent 72%),
+      transparent 70%
+    ),
+    radial-gradient(
+      46% 50% at 82% 8% var(--in-oklch),
+      color-mix(in oklab, var(--brand-2), transparent 74%),
+      transparent 72%
+    ),
+    radial-gradient(
+      50% 60% at 60% 95% var(--in-oklch),
+      color-mix(in oklab, var(--brand-3), transparent 80%),
+      transparent 72%
+    );
+}
+
+/* Floating brand orbs — soft blurred blobs that drift behind the hero. */
+@keyframes orb-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(24px, -26px, 0) scale(1.08);
+  }
+  66% {
+    transform: translate3d(-20px, 18px, 0) scale(0.95);
+  }
+}
+
+.orb {
+  border-radius: 50%;
+  filter: blur(56px);
+  will-change: transform;
+  animation: orb-drift 14s ease-in-out infinite;
+}
+.orb-slow {
+  animation-duration: 20s;
+  animation-direction: reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb,
+  .orb-slow {
+    animation: none;
+  }
+}
+
+/* Slow hue sweep for the gradient headline word. */
+@keyframes brand-hue {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+.brand-text {
+  background-image: linear-gradient(
+    100deg var(--in-oklch),
+    var(--brand),
+    var(--brand-2) 45%,
+    var(--brand-3)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .brand-text-animate {
+    animation: brand-hue 12s linear infinite;
   }
 }
 
@@ -149,5 +248,71 @@
 @media (prefers-reduced-motion: reduce) {
   .brand-slide-x {
     animation: none;
+  }
+}
+
+/* Gentle float — used for the layered hero preview cards. */
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.float-y {
+  animation: float-y 6s ease-in-out infinite;
+}
+
+.float-y-slow {
+  animation: float-y 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float-y,
+  .float-y-slow {
+    animation: none;
+  }
+}
+
+/* Infinite marquee for the "trusted by" logo strip. */
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee-x 32s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+}
+
+/* Scroll-driven reveal — decorative progressive enhancement.
+   Sections fade + rise into place as they enter the viewport.
+   Falls back to fully visible where unsupported (no JS fallback needed). */
+@media (prefers-reduced-motion: no-preference) {
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    @keyframes reveal-up {
+      from {
+        opacity: 0;
+        transform: translateY(28px);
+      }
+    }
+
+    .reveal {
+      animation: reveal-up both linear;
+      animation-timeline: view();
+      animation-range: entry 0% cover 28%;
+    }
   }
 }

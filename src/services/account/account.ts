@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import type { SessionUser } from "@/lib/rbac";
+import { isTheme, type Theme } from "@/lib/theme";
 import type { Account, AccountUpdateInput } from "@/types/account";
 
 // The signed-in user's account lives in customers (role "user") or employees
@@ -86,4 +87,34 @@ export async function updateAccount(
     notifyPush: e.notifyPush,
     notifySms: e.notifySms,
   };
+}
+
+// The user's saved UI theme. The env-based admin has no DB row, so it always
+// falls back to "system".
+export async function getTheme(user: SessionUser): Promise<Theme> {
+  if (user.role === "admin") return "system";
+
+  const row =
+    user.role === "user"
+      ? await prisma.customer.findUnique({
+          where: { id: user.id },
+          select: { theme: true },
+        })
+      : await prisma.employee.findUnique({
+          where: { id: user.id },
+          select: { theme: true },
+        });
+
+  return isTheme(row?.theme) ? row.theme : "system";
+}
+
+// Persist the user's theme. No-op for the env admin (nothing to write to).
+export async function setTheme(user: SessionUser, theme: Theme): Promise<void> {
+  if (user.role === "admin") return;
+
+  if (user.role === "user") {
+    await prisma.customer.update({ where: { id: user.id }, data: { theme } });
+    return;
+  }
+  await prisma.employee.update({ where: { id: user.id }, data: { theme } });
 }

@@ -11,12 +11,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import type { Payment } from '@/app/admin/payment/data'
-
-const STORE = {
-  name: 'My Store',
-  address: '123 Commerce Street, Karachi, Pakistan',
-  email: 'support@mystore.com',
-}
+import { formatMoney } from '@/lib/money'
+import { useStore, type StoreInfo } from '@/components/store-provider'
 
 const statusLabels: Record<string, string> = {
   paid: 'Paid', pending: 'Pending', failed: 'Failed', refunded: 'Refunded',
@@ -28,9 +24,8 @@ const statusPill: Record<string, { fg: string; bg: string }> = {
   refunded: { fg: '#6d28d9', bg: '#ede9fe' },
 }
 
-const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-
-function receiptHTML(p: Payment) {
+function receiptHTML(p: Payment, store: StoreInfo) {
+  const usd = (n: number) => formatMoney(n, store.currency)
   const pill = statusPill[p.status]
   return `
   <style>
@@ -63,9 +58,9 @@ function receiptHTML(p: Payment) {
         <div class="sub">${p.id}</div>
       </div>
       <div class="co">
-        <strong>${STORE.name}</strong>
-        ${STORE.address}<br/>
-        ${STORE.email}
+        <strong>${store.storeName}</strong>
+        ${store.email}<br/>
+        ${store.phone}
       </div>
     </div>
     <div class="body">
@@ -91,19 +86,20 @@ function receiptHTML(p: Payment) {
         <div class="row net"><span>Seller Earnings</span><span>${usd(p.sellerEarnings)}</span></div>
       </div>
 
-      <div class="foot">This is a system-generated receipt from ${STORE.name}.</div>
+      <div class="foot">This is a system-generated receipt from ${store.storeName}.</div>
     </div>
   </div>`
 }
 
-export function printReceipt(p: Payment) {
+export function printReceipt(p: Payment, store: StoreInfo) {
   const w = window.open('', '_blank', 'width=820,height=920')
   if (!w) return
-  w.document.write(`<html><head><title>Receipt ${p.id}</title><style>@page{margin:14mm}body{margin:0;background:#fff}</style></head><body onload="window.focus();window.print();">${receiptHTML(p)}</body></html>`)
+  w.document.write(`<html><head><title>Receipt ${p.id}</title><style>@page{margin:14mm}body{margin:0;background:#fff}</style></head><body onload="window.focus();window.print();">${receiptHTML(p, store)}</body></html>`)
   w.document.close()
 }
 
-export function downloadReceiptPdf(p: Payment) {
+export function downloadReceiptPdf(p: Payment, store: StoreInfo) {
+  const usd = (n: number) => formatMoney(n, store.currency)
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const M = 40
   const right = 555
@@ -115,10 +111,10 @@ export function downloadReceiptPdf(p: Payment) {
   doc.text(p.id, M, y + 16)
 
   doc.setFont('helvetica', 'bold').setFontSize(12).setTextColor(23)
-  doc.text(STORE.name, right, y, { align: 'right' })
+  doc.text(store.storeName, right, y, { align: 'right' })
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(120)
-  doc.text(STORE.address, right, y + 14, { align: 'right' })
-  doc.text(STORE.email, right, y + 26, { align: 'right' })
+  doc.text(store.email, right, y + 14, { align: 'right' })
+  doc.text(store.phone, right, y + 26, { align: 'right' })
 
   y += 60
   doc.setDrawColor(225).line(M, y, right, y)
@@ -160,7 +156,7 @@ export function downloadReceiptPdf(p: Payment) {
   doc.text(usd(p.sellerEarnings), right, y, { align: 'right' })
 
   doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(160)
-  doc.text(`This is a system-generated receipt from ${STORE.name}.`, 297, 800, { align: 'center' })
+  doc.text(`This is a system-generated receipt from ${store.storeName}.`, 297, 800, { align: 'center' })
 
   doc.save(`receipt-${p.id}.pdf`)
 }
@@ -172,6 +168,7 @@ export function ReceiptDialog({
   payment: Payment | null
   onOpenChange: (open: boolean) => void
 }) {
+  const store = useStore()
   return (
     <Dialog open={!!payment} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl gap-0 overflow-hidden p-0 sm:max-w-2xl">
@@ -179,13 +176,13 @@ export function ReceiptDialog({
           <DialogTitle>Receipt {payment?.id}</DialogTitle>
         </DialogHeader>
         <div className="max-h-[70vh] overflow-y-auto bg-muted/40 p-5">
-          {payment && <div dangerouslySetInnerHTML={{ __html: receiptHTML(payment) }} />}
+          {payment && <div dangerouslySetInnerHTML={{ __html: receiptHTML(payment, store) }} />}
         </div>
         <DialogFooter className="gap-2 border-t p-4 sm:gap-2">
-          <Button variant="outline" onClick={() => payment && printReceipt(payment)}>
+          <Button variant="outline" onClick={() => payment && printReceipt(payment, store)}>
             <Printer className="size-4" /> Print
           </Button>
-          <Button onClick={() => payment && downloadReceiptPdf(payment)}>
+          <Button onClick={() => payment && downloadReceiptPdf(payment, store)}>
             <Download className="size-4" /> Export PDF
           </Button>
         </DialogFooter>

@@ -22,18 +22,10 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import type { Product, ProductStatus } from '@/types/product'
+import { getCategories } from '@/app/api/category-helper/category-helper'
+import type { CategoryRow } from '@/app/admin/categories/data'
 
 export type NewProduct = Omit<Product, 'id'> & { description: string }
-
-const CATEGORIES = [
-  'Sneakers',
-  'Electronics',
-  'Apparel',
-  'Home',
-  'Beauty',
-  'Accessories',
-  'Sports',
-]
 
 const STATUS_OPTIONS: { value: ProductStatus; label: string }[] = [
   { value: 'Active', label: 'Active' },
@@ -99,6 +91,7 @@ const ProductModal = ({ open, onOpenChange, onSave, initial }: ProductModalProps
   const [form, setForm] = useState<NewProduct>(EMPTY)
   const [preview, setPreview] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Sync the form whenever the modal opens (edit -> prefill, add -> blank).
@@ -109,6 +102,17 @@ const ProductModal = ({ open, onOpenChange, onSave, initial }: ProductModalProps
       setPreview(initial && isImageSrc(initial.picture) ? initial.picture : null)
     }
   }, [open, initial])
+
+  // Load the categories the admin actually created (from the database) each
+  // time the modal opens, so newly added categories show up right away.
+  useEffect(() => {
+    if (!open) return
+    getCategories()
+      .then((rows: CategoryRow[]) => setCategories(rows.map((r) => ({ id: r.id, name: r.name }))))
+      .catch(() => {
+        // Leave the list empty if the API is unavailable.
+      })
+  }, [open])
 
   function update<K extends keyof NewProduct>(key: K, value: NewProduct[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -258,18 +262,32 @@ const ProductModal = ({ open, onOpenChange, onSave, initial }: ProductModalProps
                 Category
               </Label>
               <Select
-                value={form.category}
-                onValueChange={(v) => update('category', v)}
+                value={form.category || undefined}
+                onValueChange={(v) => {
+                  const picked = categories.find((c) => c.name === v)
+                  // Store the display name and link the real Category row.
+                  setForm((prev) => ({ ...prev, category: v, categoryId: picked?.id ?? null }))
+                }}
               >
                 <SelectTrigger id="category" className="w-full">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
+                  {/* Keep the current value selectable when editing a product
+                      whose category was removed from the catalog. */}
+                  {form.category && !categories.some((c) => c.name === form.category) && (
+                    <SelectItem value={form.category}>{form.category}</SelectItem>
+                  )}
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>
+                      {c.name}
                     </SelectItem>
                   ))}
+                  {categories.length === 0 && (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No categories yet — add one first.
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>

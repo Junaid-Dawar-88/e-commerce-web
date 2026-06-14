@@ -1,4 +1,5 @@
-// Report view-model types. Real data should come from aggregation queries.
+// Report view-model types. The live data is aggregated from the Orders and
+// Customers tables — see `src/services/report/report.ts`.
 
 export type Period = 'daily' | 'weekly' | 'monthly'
 
@@ -6,10 +7,10 @@ export type SeriesPoint = {
   label: string
   revenue: number
   orders: number
-  visitors: number
   refunds: number
 }
 
+// One slice of the "Revenue by Seller" donut.
 export type ChannelSlice = {
   name: string
   value: number
@@ -34,27 +35,7 @@ export type ReportData = {
   channels: ChannelSlice[]
 }
 
-const emptyReport: ReportData = {
-  summary: {
-    revenue: 0,
-    orders: 0,
-    customers: 0,
-    aov: 0,
-    refundRate: 0,
-    revenueDelta: 0,
-    ordersDelta: 0,
-    customersDelta: 0,
-    aovDelta: 0,
-  },
-  series: [],
-  channels: [],
-}
-
-export const reports: Record<Period, ReportData> = {
-  daily: emptyReport,
-  weekly: emptyReport,
-  monthly: emptyReport,
-}
+export type Reports = Record<Period, ReportData>
 
 export const periodMeta: Record<Period, { label: string; unit: string; range: string }> = {
   daily: { label: 'Daily', unit: 'day', range: 'Last 7 days' },

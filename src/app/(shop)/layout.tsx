@@ -2,19 +2,22 @@ import Link from "next/link"
 import { ShoppingBag } from "lucide-react"
 
 import { getCurrentUser } from "@/lib/rbac"
+import { getSettings } from "@/services/setting/setting"
 import { CartProvider } from "@/components/shop/cart-provider"
 import { ShopHeader } from "@/components/shop/shop-header"
 
 export default async function ShopLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const user = await getCurrentUser()
+  const [user, settings] = await Promise.all([getCurrentUser(), getSettings()])
+  const storeName = settings.storeName
 
   return (
     <CartProvider>
       <div className="flex min-h-screen flex-col bg-background text-foreground">
         <ShopHeader
           user={user ? { name: user.name ?? null, role: user.role } : null}
+          storeName={storeName}
         />
 
         <main className="flex-1">{children}</main>
@@ -25,7 +28,7 @@ export default async function ShopLayout({
               <span className="grid size-6 place-items-center rounded-md bg-primary text-primary-foreground">
                 <ShoppingBag className="size-3.5" />
               </span>
-              Your Store
+              {storeName}
             </div>
             <nav className="flex items-center gap-6">
               <Link href="/" className="transition-colors hover:text-foreground">
@@ -44,7 +47,7 @@ export default async function ShopLayout({
                 Contact
               </Link>
             </nav>
-            <p>© 2026 Your Store. All rights reserved.</p>
+            <p>© 2026 {storeName}. All rights reserved.</p>
           </div>
         </footer>
       </div>

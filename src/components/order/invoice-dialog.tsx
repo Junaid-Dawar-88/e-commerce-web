@@ -11,12 +11,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import type { Order } from '@/app/admin/order/data'
-
-const STORE = {
-  name: 'My Store',
-  address: '123 Commerce Street, Karachi, Pakistan',
-  email: 'support@mystore.com',
-}
+import { formatMoney } from '@/lib/money'
+import { useStore, type StoreInfo } from '@/components/store-provider'
 
 const statusLabels: Record<string, string> = {
   pending: 'Pending', processing: 'Processing', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
@@ -25,7 +21,6 @@ const paymentLabels: Record<string, string> = {
   paid: 'Paid', cod: 'Cash on Delivery', unpaid: 'Unpaid', refunded: 'Refunded',
 }
 
-const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 const subtotalOf = (order: Order) => order.items.reduce((s, it) => s + it.price * it.qty, 0)
 
 const statusPill: Record<string, { fg: string; bg: string }> = {
@@ -37,7 +32,8 @@ const statusPill: Record<string, { fg: string; bg: string }> = {
 }
 
 /** Self-contained, print-friendly HTML used for both the modal preview and the print window. */
-function invoiceHTML(order: Order) {
+function invoiceHTML(order: Order, store: StoreInfo) {
+  const usd = (n: number) => formatMoney(n, store.currency)
   const subtotal = subtotalOf(order)
   const pill = statusPill[order.status]
   const rows = order.items
@@ -96,9 +92,9 @@ function invoiceHTML(order: Order) {
         <div class="num">${order.id}</div>
       </div>
       <div class="co">
-        <strong>${STORE.name}</strong>
-        ${STORE.address}<br/>
-        ${STORE.email}
+        <strong>${store.storeName}</strong>
+        ${store.email}<br/>
+        ${store.phone}
       </div>
     </div>
 
@@ -139,12 +135,12 @@ function invoiceHTML(order: Order) {
         <strong>Payment</strong> · ${order.paymentMethod} — ${paymentLabels[order.paymentStatus]}
       </div>
 
-      <div class="foot">Thank you for shopping with ${STORE.name}!</div>
+      <div class="foot">Thank you for shopping with ${store.storeName}!</div>
     </div>
   </div>`
 }
 
-function printInvoice(order: Order) {
+function printInvoice(order: Order, store: StoreInfo) {
   const w = window.open('', '_blank', 'width=820,height=920')
   if (!w) return
   w.document.write(`
@@ -154,13 +150,14 @@ function printInvoice(order: Order) {
         <style>@page { margin: 14mm; } body { margin:0; background:#fff; }</style>
       </head>
       <body onload="window.focus(); window.print();">
-        ${invoiceHTML(order)}
+        ${invoiceHTML(order, store)}
       </body>
     </html>`)
   w.document.close()
 }
 
-function exportPdf(order: Order) {
+function exportPdf(order: Order, store: StoreInfo) {
+  const usd = (n: number) => formatMoney(n, store.currency)
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const M = 40
   const right = 555
@@ -174,10 +171,10 @@ function exportPdf(order: Order) {
   doc.line(M, y + 24, M + 40, y + 24)
 
   doc.setFont('helvetica', 'bold').setFontSize(12).setTextColor(23)
-  doc.text(STORE.name, right, y, { align: 'right' })
+  doc.text(store.storeName, right, y, { align: 'right' })
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(120)
-  doc.text(STORE.address, right, y + 14, { align: 'right' })
-  doc.text(STORE.email, right, y + 26, { align: 'right' })
+  doc.text(store.email, right, y + 14, { align: 'right' })
+  doc.text(store.phone, right, y + 26, { align: 'right' })
 
   y += 64
   doc.setFontSize(10).setTextColor(23)
@@ -235,7 +232,7 @@ function exportPdf(order: Order) {
   doc.text(`Payment: ${order.paymentMethod} — ${paymentLabels[order.paymentStatus]}`, M, y)
 
   doc.setTextColor(160).setFontSize(10)
-  doc.text(`Thank you for shopping with ${STORE.name}!`, M, 800)
+  doc.text(`Thank you for shopping with ${store.storeName}!`, M, 800)
 
   doc.save(`invoice-${order.id.replace('#', '')}.pdf`)
 }
@@ -247,6 +244,7 @@ export function InvoiceDialog({
   order: Order | null
   onOpenChange: (open: boolean) => void
 }) {
+  const store = useStore()
   return (
     <Dialog open={!!order} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl gap-0 overflow-hidden p-0 sm:max-w-3xl">
@@ -255,15 +253,15 @@ export function InvoiceDialog({
         </DialogHeader>
 
         <div className="max-h-[70vh] overflow-y-auto bg-muted/40 p-5">
-          {order && <div dangerouslySetInnerHTML={{ __html: invoiceHTML(order) }} />}
+          {order && <div dangerouslySetInnerHTML={{ __html: invoiceHTML(order, store) }} />}
         </div>
 
         <DialogFooter className="gap-2 border-t p-4 sm:gap-2">
-          <Button variant="outline" onClick={() => order && printInvoice(order)}>
+          <Button variant="outline" onClick={() => order && printInvoice(order, store)}>
             <Printer className="size-4" />
             Print
           </Button>
-          <Button onClick={() => order && exportPdf(order)}>
+          <Button onClick={() => order && exportPdf(order, store)}>
             <Download className="size-4" />
             Export PDF
           </Button>

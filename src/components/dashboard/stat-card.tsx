@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -8,13 +9,20 @@ interface StatCardProps {
   delta: number
   icon: LucideIcon
   accent: string
+  /** When set, the whole card links to the related admin page. */
+  href?: string
 }
 
-export function StatCard({ label, value, delta, icon: Icon, accent }: StatCardProps) {
+export function StatCard({ label, value, delta, icon: Icon, accent, href }: StatCardProps) {
   const positive = delta >= 0
 
-  return (
-    <Card className="relative overflow-hidden">
+  const card = (
+    <Card
+      className={cn(
+        'relative overflow-hidden',
+        href && 'transition-shadow hover:shadow-md'
+      )}
+    >
       {/* soft accent glow in the corner */}
       <div
         className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-15 blur-2xl"
@@ -53,5 +61,13 @@ export function StatCard({ label, value, delta, icon: Icon, accent }: StatCardPr
         <span className="text-xs text-muted-foreground">vs. last month</span>
       </CardContent>
     </Card>
+  )
+
+  return href ? (
+    <Link href={href} className="block">
+      {card}
+    </Link>
+  ) : (
+    card
   )
 }

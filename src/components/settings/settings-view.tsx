@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Settings as SettingsIcon,
   Store,
@@ -32,6 +33,9 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { PermissionsPanel } from './permissions-panel'
+import { DEFAULT_SETTINGS } from '@/app/admin/setting/data'
+import { getSettings, saveSettings } from '@/app/api/setting-helper/setting-helper'
+import { getAuditLogs } from '@/app/api/audit-helper/audit-helper'
 
 type SectionKey =
   | 'general' | 'store' | 'payments' | 'users' | 'notifications'
@@ -51,7 +55,43 @@ const SECTIONS: { key: SectionKey; label: string; icon: LucideIcon }[] = [
   { key: 'audit', label: 'Audit Logs', icon: ScrollText },
 ]
 
-const auditLogs: { text: string; time: string }[] = []
+type AuditLogRow = {
+  id: string
+  action: string
+  category: string
+  actorName: string
+  actorEmail: string
+  actorRole: string
+  target: string
+  createdAt: string
+}
+
+// Compact "2h ago" style relative time.
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const s = Math.round(diff / 1000)
+  if (s < 60) return 'just now'
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.round(h / 24)
+  if (d < 30) return `${d}d ago`
+  return new Date(iso).toLocaleDateString()
+}
+
+const auditCategoryStyle: Record<string, string> = {
+  auth: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  settings: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  product: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  category: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+  order: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  payment: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+  customer: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  employee: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+  review: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
+  system: 'bg-muted text-muted-foreground',
+}
 
 /* ---------- small building blocks ---------- */
 
@@ -96,47 +136,33 @@ function CheckRow({ label, checked, onChange }: { label: string; checked: boolea
   )
 }
 
-/* ---------- defaults ---------- */
-
-const DEFAULTS = {
-  storeName: 'ShoeMart',
-  email: 'support@shoemart.com',
-  phone: '+92 300 1234567',
-  currency: 'USD',
-  timezone: 'GMT+5',
-  language: 'en',
-  storeActive: true,
-  guestCheckout: true,
-  minOrder: '10',
-  maxOrder: '5000',
-  productApproval: 'auto',
-  methods: { Stripe: true, PayPal: true, Easypaisa: true, JazzCash: true },
-  stripeKey: 'pk_live_51Hxxxxxxxxxxxx',
-  stripeSecret: 'sk_live_51Hxxxxxxxxxxxx',
-  commission: '10',
-  autoRefund: false,
-  notify: { email: true, push: true, sms: false },
-  events: { 'New Order': true, Payment: true, Refund: true, 'Low Stock': true },
-  twoFA: true,
-  sessionTimeout: '30',
-  passwordPolicy: 'strong',
-  rateLimiting: true,
-  shipping: { standard: '5', express: '10', sameDay: '20' },
-  taxEnabled: true,
-  taxRate: '15',
-  regionBased: true,
-  theme: 'system' as 'light' | 'dark' | 'system',
-  primary: '#000000',
-  accent: '#F97316',
-}
-
 const mask = (key: string) => `${key.slice(0, 7)}${'•'.repeat(12)}`
 
 export function SettingsView() {
+  const router = useRouter()
   const [active, setActive] = useState<SectionKey>('general')
-  const [s, setS] = useState(DEFAULTS)
+  const [s, setS] = useState(DEFAULT_SETTINGS)
   const [saved, setSaved] = useState(false)
-  const set = (patch: Partial<typeof DEFAULTS>) => { setS((p) => ({ ...p, ...patch })); setSaved(false) }
+  const [saving, setSaving] = useState(false)
+  const [audit, setAudit] = useState<AuditLogRow[] | null>(null)
+  const set = (patch: Partial<typeof DEFAULT_SETTINGS>) => { setS((p) => ({ ...p, ...patch })); setSaved(false) }
+
+  // Load the saved settings from Neon on mount.
+  useEffect(() => {
+    getSettings()
+      .then((stored) => setS((prev) => ({ ...prev, ...stored })))
+      .catch(() => {
+        // Fall back to defaults if the API is unavailable.
+      })
+  }, [])
+
+  // Load the audit trail the first time that tab is opened.
+  useEffect(() => {
+    if (active !== 'audit' || audit !== null) return
+    getAuditLogs()
+      .then((rows: AuditLogRow[]) => setAudit(rows))
+      .catch(() => setAudit([]))
+  }, [active, audit])
 
   function applyTheme(theme: 'light' | 'dark' | 'system') {
     set({ theme })
@@ -145,9 +171,18 @@ export function SettingsView() {
     root.classList.toggle('dark', dark)
   }
 
-  function save() {
-    setSaved(true)
-    // Persist to API here.
+  async function save() {
+    setSaving(true)
+    try {
+      await saveSettings(s)
+      setSaved(true)
+      // Re-render server components (e.g. the sidebar store name) with the new values.
+      router.refresh()
+    } catch {
+      // Keep the form as-is if the save failed.
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -158,9 +193,9 @@ export function SettingsView() {
           <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
           <p className="text-sm text-muted-foreground">Configure your store and platform preferences.</p>
         </div>
-        <Button onClick={save}>
-          {saved ? <Check className="size-4" /> : null}
-          {saved ? 'Saved' : 'Save Changes'}
+        <Button onClick={save} disabled={saving}>
+          {saved && !saving ? <Check className="size-4" /> : null}
+          {saving ? 'Saving…' : saved ? 'Saved' : 'Save Changes'}
         </Button>
       </header>
 
@@ -284,10 +319,11 @@ export function SettingsView() {
                 ))}
               </div>
               <div className="border-t pt-5">
-                <p className="mb-1 text-sm font-medium">Employee Page Access</p>
+                <p className="mb-1 text-sm font-medium">Employee Access Control</p>
                 <p className="mb-4 text-xs text-muted-foreground">
-                  Grant each employee exactly the pages they can open. Changes take
-                  effect the next time they sign in.
+                  Grant each employee which pages they can <span className="font-medium">view</span> and
+                  which they can take <span className="font-medium">actions</span> on (create, edit,
+                  delete). Changes take effect the next time they sign in.
                 </p>
                 <PermissionsPanel />
               </div>
@@ -409,14 +445,39 @@ export function SettingsView() {
 
           {active === 'audit' && (
             <SettingsCard title="Audit Logs">
-              <ul className="flex flex-col divide-y">
-                {auditLogs.map((log, i) => (
-                  <li key={i} className="flex items-center justify-between gap-4 py-3 text-sm first:pt-0 last:pb-0">
-                    <span>{log.text}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{log.time}</span>
-                  </li>
-                ))}
-              </ul>
+              {audit === null ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Loading activity…</p>
+              ) : audit.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">No activity recorded yet.</p>
+              ) : (
+                <ul className="flex flex-col divide-y">
+                  {audit.map((log) => (
+                    <li key={log.id} className="flex items-center justify-between gap-4 py-3 text-sm first:pt-0 last:pb-0">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Badge
+                          variant="secondary"
+                          className={cn('shrink-0 font-normal capitalize', auditCategoryStyle[log.category] ?? auditCategoryStyle.system)}
+                        >
+                          {log.category}
+                        </Badge>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">
+                            {log.action}
+                            {log.target ? <span className="text-muted-foreground"> · {log.target}</span> : null}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {log.actorName}
+                            {log.actorRole ? ` · ${log.actorRole}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground" title={new Date(log.createdAt).toLocaleString()}>
+                        {relativeTime(log.createdAt)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </SettingsCard>
           )}
         </div>

@@ -48,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { useMoney } from '@/components/store-provider'
 import { InvoiceDialog } from '@/components/order/invoice-dialog'
 import {
   mapOrder,
@@ -79,8 +80,6 @@ const paymentMeta: Record<PaymentStatus, { label: string; badge: string }> = {
   refunded: { label: 'Refunded', badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' },
 }
 
-const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-
 function StatTile({ label, value, icon: Icon, accent }: { label: string; value: string; icon: LucideIcon; accent: string }) {
   return (
     <div className="flex items-center gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
@@ -100,6 +99,7 @@ function StatTile({ label, value, icon: Icon, accent }: { label: string; value: 
 
 export function OrdersView() {
   const router = useRouter()
+  const usd = useMoney()
   const [items, setItems] = useState<Order[]>([])
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<OrderStatus | 'all'>('all')

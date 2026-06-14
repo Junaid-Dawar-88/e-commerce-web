@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { useMoney } from '@/components/store-provider'
 import { customers as seedCustomers, mapCustomer, type Customer, type CustomerStatus } from '@/app/admin/customer/data'
 import {
   addCustomer,
@@ -58,7 +59,6 @@ const statusMeta: Record<CustomerStatus, { label: string; badge: string }> = {
   inactive: { label: 'Inactive', badge: 'bg-muted text-muted-foreground' },
 }
 
-const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 const initials = (name: string) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
 function StatTile({ label, value, icon: Icon, accent }: { label: string; value: string; icon: LucideIcon; accent: string }) {
@@ -80,6 +80,7 @@ function StatTile({ label, value, icon: Icon, accent }: { label: string; value: 
 
 export function CustomersView() {
   const router = useRouter()
+  const usd = useMoney()
   const [items, setItems] = useState<Customer[]>(seedCustomers)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<CustomerStatus | 'all'>('all')

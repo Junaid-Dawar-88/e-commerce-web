@@ -54,6 +54,13 @@ enum PaymentStatus {
   refunded
 }
 
+enum ReviewStatus {
+  approved
+  pending
+  reported
+  hidden
+}
+
 enum NotifCategory {
   orders
   payments
@@ -66,6 +73,20 @@ enum NotifTone {
   warning
   error
   info
+}
+
+// Area of the system an audit entry belongs to.
+enum AuditCategory {
+  auth
+  settings
+  product
+  category
+  order
+  payment
+  customer
+  employee
+  review
+  system
 }
 
 model Customer {
@@ -83,10 +104,13 @@ model Customer {
   notifyEmail Boolean      @default(true)
   notifyPush  Boolean      @default(true)
   notifySms   Boolean      @default(false)
+  // UI theme preference: "light" | "dark" | "system".
+  theme       String       @default("system")
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
   orders    Order[]
+  reviews   Review[]
 
   @@map("customers")
 }
@@ -147,10 +171,40 @@ model Employee {
   notifyEmail Boolean       @default(true)
   notifyPush  Boolean       @default(true)
   notifySms   Boolean       @default(false)
+  // UI theme preference: "light" | "dark" | "system".
+  theme       String        @default("system")
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
   @@map("employees")
+}
+
+// Singleton row (id = 1) holding the store-wide settings as a JSON blob.
+model Setting {
+  id        Int      @id @default(1)
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// Append-only record of meaningful admin/store actions. Written server-side
+// from `src/services/audit/audit.ts`; surfaced in Settings → Audit Logs.
+model AuditLog {
+  id         String        @id @default(cuid())
+  action     String
+  category   AuditCategory @default(system)
+  // Who performed it — denormalized so the entry survives if the actor is
+  // later removed. Falls back to "System" for automated events.
+  actorName  String        @default("System")
+  actorEmail String        @default("")
+  actorRole  String        @default("")
+  // The affected entity, e.g. an order id or product name (optional).
+  target     String        @default("")
+  createdAt  DateTime      @default(now())
+
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 model Notification {
@@ -188,9 +242,31 @@ model  Product {
   subcategoryRel Subcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
 
   orderItems     OrderItem[]
+  reviews        Review[]
 
   @@index([categoryId])
   @@index([subcategoryId])
+}
+
+model Review {
+  id           String       @id @default(cuid())
+  // Optional links — names are denormalized so a review survives if the
+  // product or customer is later deleted.
+  productId    Int?
+  product      Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName  String       @default("")
+  customerId   String?
+  customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName String       @default("")
+  rating       Int          @default(5)
+  comment      String       @default("")
+  status       ReviewStatus @default(pending)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([productId])
+  @@index([customerId])
+  @@map("reviews")
 }
 
 model Category {

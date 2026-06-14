@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search,
@@ -41,12 +41,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { useMoney } from '@/components/store-provider'
 import {
-  payments as seedPayments,
+  mapPayment,
   type Payment,
-  type PaymentMethod,
   type PaymentStatus,
 } from '@/app/admin/payment/data'
+import { getOrders } from '@/app/api/order-helper/order-helper'
+import type { OrderRow } from '@/app/admin/order/data'
 
 const statusMeta: Record<PaymentStatus, { label: string; badge: string }> = {
   paid: { label: 'Paid', badge: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
@@ -54,10 +56,6 @@ const statusMeta: Record<PaymentStatus, { label: string; badge: string }> = {
   failed: { label: 'Failed', badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' },
   refunded: { label: 'Refunded', badge: 'bg-violet-500/10 text-violet-600 dark:text-violet-400' },
 }
-
-const methods: PaymentMethod[] = ['Stripe', 'PayPal', 'Easypaisa', 'JazzCash']
-
-const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
 function StatTile({ label, value, icon: Icon, accent }: { label: string; value: string; icon: LucideIcon; accent: string }) {
   return (
@@ -78,12 +76,28 @@ function StatTile({ label, value, icon: Icon, accent }: { label: string; value: 
 
 export function PaymentsView() {
   const router = useRouter()
-  const [items, setItems] = useState<Payment[]>(seedPayments)
+  const usd = useMoney()
+  const [items, setItems] = useState<Payment[]>([])
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<PaymentStatus | 'all'>('all')
-  const [method, setMethod] = useState<PaymentMethod | 'all'>('all')
+  const [method, setMethod] = useState<string>('all')
   const [dateRange, setDateRange] = useState('all')
   const [amountBand, setAmountBand] = useState('all')
+
+  // Payments are orders — load them and map each into a transaction.
+  useEffect(() => {
+    getOrders()
+      .then((rows: OrderRow[]) => setItems(rows.map(mapPayment)))
+      .catch(() => {
+        // Leave the table empty if the API is unavailable.
+      })
+  }, [])
+
+  // Build the method filter from the methods that actually appear in the data.
+  const methodOptions = useMemo(
+    () => Array.from(new Set(items.map((p) => p.method))).sort(),
+    [items]
+  )
 
   const stats = useMemo(() => {
     const revenue = items.filter((p) => p.status === 'paid').reduce((s, p) => s + p.amount, 0)
@@ -164,11 +178,11 @@ export function PaymentsView() {
             <SelectItem value="refunded">Refunded</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod | 'all')}>
+        <Select value={method} onValueChange={setMethod}>
           <SelectTrigger size="sm" className="w-36"><SelectValue placeholder="Method" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All methods</SelectItem>
-            {methods.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+            {methodOptions.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
           </SelectContent>
         </Select>
         <Select value={dateRange} onValueChange={setDateRange}>

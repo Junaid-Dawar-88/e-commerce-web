@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search,
   Download,
@@ -43,7 +44,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { reviews as seedReviews, type Review, type ReviewStatus } from '@/app/admin/reviews/data'
+import { mapReview, type Review, type ReviewRow, type ReviewStatus } from '@/app/admin/reviews/data'
+import {
+  deleteReview,
+  getReviews,
+  updateReview,
+} from '@/app/api/review-helper/review-helper'
 
 const statusMeta: Record<ReviewStatus, { label: string; className: string }> = {
   approved: { label: 'Approved', className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
@@ -101,16 +107,28 @@ function StatTile({
 }
 
 export function ReviewsView() {
-  const [items, setItems] = useState<Review[]>(seedReviews)
+  const router = useRouter()
+  const [items, setItems] = useState<Review[]>([])
   const [query, setQuery] = useState('')
   const [rating, setRating] = useState<string>('all')
   const [status, setStatus] = useState<ReviewStatus | 'all'>('all')
   const [product, setProduct] = useState<string>('all')
-  const [selectedId, setSelectedId] = useState<string | null>(seedReviews[0]?.id ?? null)
+
+  // Open a review's full details on its own page.
+  const openReview = (id: string) => router.push(`/admin/reviews/${id}`)
+
+  // Load real reviews from the database on mount.
+  useEffect(() => {
+    getReviews()
+      .then((rows: ReviewRow[]) => setItems(rows.map(mapReview)))
+      .catch(() => {
+        // Leave the table empty if the API is unavailable.
+      })
+  }, [])
 
   const productOptions = useMemo(
-    () => Array.from(new Set(seedReviews.map((r) => r.product))).sort(),
-    []
+    () => Array.from(new Set(items.map((r) => r.product))).sort(),
+    [items]
   )
 
   const stats = useMemo(() => {
@@ -144,15 +162,20 @@ export function ReviewsView() {
     })
   }, [items, query, rating, status, product])
 
-  const selected = items.find((r) => r.id === selectedId) ?? null
-
   function setReviewStatus(id: string, next: ReviewStatus) {
+    // Optimistic update, then persist to the database.
     setItems((prev) => prev.map((r) => (r.id === id ? { ...r, status: next } : r)))
+    updateReview(id, { status: next }).catch(() => {
+      // Reload from the server if the update failed.
+      getReviews().then((rows: ReviewRow[]) => setItems(rows.map(mapReview))).catch(() => {})
+    })
   }
 
   function removeReview(id: string) {
     setItems((prev) => prev.filter((r) => r.id !== id))
-    if (selectedId === id) setSelectedId(null)
+    deleteReview(id).catch(() => {
+      getReviews().then((rows: ReviewRow[]) => setItems(rows.map(mapReview))).catch(() => {})
+    })
   }
 
   function exportCsv() {
@@ -271,153 +294,82 @@ export function ReviewsView() {
         </Select>
       </div>
 
-      {/* Table + detail */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Reviews table */}
-        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 lg:col-span-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">Product</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Rating</TableHead>
-                <TableHead className="max-w-0">Review</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-20 pr-4 text-right">Actions</TableHead>
+      {/* Reviews table */}
+      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="pl-4">Product</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Rating</TableHead>
+              <TableHead className="max-w-0">Review</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-20 pr-4 text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((r) => (
+              <TableRow
+                key={r.id}
+                onClick={() => openReview(r.id)}
+                className="cursor-pointer hover:bg-accent/40"
+              >
+                <TableCell className="pl-4 font-medium">{r.product}</TableCell>
+                <TableCell className="text-muted-foreground">{r.customer}</TableCell>
+                <TableCell><Stars rating={r.rating} /></TableCell>
+                <TableCell className="max-w-0 truncate text-muted-foreground">{r.comment}</TableCell>
+                <TableCell>
+                  <Badge className={cn('font-normal', statusMeta[r.status].className)}>
+                    {statusMeta[r.status].label}
+                  </Badge>
+                </TableCell>
+                <TableCell className="pr-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-end gap-0.5">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      aria-label="View review"
+                      onClick={() => openReview(r.id)}
+                    >
+                      <Eye className="size-4" />
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8" aria-label="More actions">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => openReview(r.id)}>
+                          <Eye className="size-4" /> View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setReviewStatus(r.id, 'approved')}>
+                          <Check className="size-4" /> Approve
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setReviewStatus(r.id, 'hidden')}>
+                          <EyeOff className="size-4" /> Hide
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onClick={() => removeReview(r.id)}>
+                          <Trash2 className="size-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((r) => (
-                <TableRow
-                  key={r.id}
-                  onClick={() => setSelectedId(r.id)}
-                  className={cn('cursor-pointer', selectedId === r.id && 'bg-accent/60')}
-                >
-                  <TableCell className="pl-4 font-medium">{r.product}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.customer}</TableCell>
-                  <TableCell><Stars rating={r.rating} /></TableCell>
-                  <TableCell className="max-w-0 truncate text-muted-foreground">{r.comment}</TableCell>
-                  <TableCell>
-                    <Badge className={cn('font-normal', statusMeta[r.status].className)}>
-                      {statusMeta[r.status].label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="pr-4 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-0.5">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8"
-                        aria-label="View review"
-                        onClick={() => setSelectedId(r.id)}
-                      >
-                        <Eye className="size-4" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="size-8" aria-label="More actions">
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => setReviewStatus(r.id, 'approved')}>
-                            <Check className="size-4" /> Approve
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setReviewStatus(r.id, 'hidden')}>
-                            <EyeOff className="size-4" /> Hide
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem variant="destructive" onClick={() => removeReview(r.id)}>
-                            <Trash2 className="size-4" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                    No reviews found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Detail panel */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-6 rounded-xl bg-card ring-1 ring-foreground/10">
-            <div className="flex items-center justify-between border-b p-4">
-              <h2 className="font-medium">Review Details</h2>
-              {selected && <Stars rating={selected.rating} />}
-            </div>
-
-            {selected ? (
-              <div className="flex flex-col gap-4 p-4">
-                <dl className="flex flex-col gap-2 text-sm">
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Product</dt>
-                    <dd className="text-right font-medium">{selected.product}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Customer</dt>
-                    <dd className="text-right">{selected.customer}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Date</dt>
-                    <dd className="text-right">{selected.date}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Status</dt>
-                    <dd>
-                      <Badge className={cn('font-normal', statusMeta[selected.status].className)}>
-                        {statusMeta[selected.status].label}
-                      </Badge>
-                    </dd>
-                  </div>
-                </dl>
-
-                <div>
-                  <p className="mb-1 text-sm text-muted-foreground">Review</p>
-                  <blockquote className="rounded-lg border-l-2 border-amber-400 bg-muted/40 p-3 text-sm italic">
-                    “{selected.comment}”
-                  </blockquote>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-600/90"
-                    disabled={selected.status === 'approved'}
-                    onClick={() => setReviewStatus(selected.id, 'approved')}
-                  >
-                    <Check className="size-4" /> Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={selected.status === 'hidden'}
-                    onClick={() => setReviewStatus(selected.id, 'hidden')}
-                  >
-                    <EyeOff className="size-4" /> Hide
-                  </Button>
-                  <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => removeReview(selected.id)}>
-                    <Trash2 className="size-4" /> Delete
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
-                <MessageSquare className="size-8 opacity-40" />
-                Select a review to see its details.
-              </div>
+            ))}
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                  No reviews found.
+                </TableCell>
+              </TableRow>
             )}
-          </div>
-        </div>
+          </TableBody>
+        </Table>
       </div>
     </div>
   )

@@ -1,5 +1,9 @@
+import Link from 'next/link'
 import {
   DollarSign,
+  ShoppingCart,
+  Users,
+  CreditCard,
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react'
@@ -23,17 +27,12 @@ import {
 import { StatCard } from '@/components/dashboard/stat-card'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'
 import { CategoryChart } from '@/components/dashboard/category-chart'
-import { TrafficChart } from '@/components/dashboard/traffic-chart'
+import { WeeklyOrdersChart } from '@/components/dashboard/traffic-chart'
 import { cn } from '@/lib/utils'
-import { recentOrders, topProducts, type OrderStatus } from './data'
-
-const stats: {
-  label: string
-  value: string
-  delta: number
-  icon: typeof DollarSign
-  accent: string
-}[] = []
+import { getDashboardData } from '@/services/dashboard/dashboard'
+import { getSettings } from '@/services/setting/setting'
+import { formatMoney } from '@/lib/money'
+import type { OrderStatus } from './data'
 
 const statusStyles: Record<OrderStatus, string> = {
   paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -41,10 +40,47 @@ const statusStyles: Record<OrderStatus, string> = {
   refunded: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
 }
 
-const currency = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+export default async function DashboardPage() {
+  const [data, settings] = await Promise.all([getDashboardData(), getSettings()])
+  const { metrics } = data
+  const currency = (n: number) => formatMoney(n, settings.currency)
 
-export default function DashboardPage() {
+  // KPI cards — each links through to the page it summarises.
+  const stats = [
+    {
+      label: 'Total Revenue',
+      value: currency(metrics.revenue.value),
+      delta: metrics.revenue.delta,
+      icon: DollarSign,
+      accent: 'oklch(0.7 0.14 195)',
+      href: '/admin/report',
+    },
+    {
+      label: 'Orders',
+      value: metrics.orders.value.toLocaleString(),
+      delta: metrics.orders.delta,
+      icon: ShoppingCart,
+      accent: 'oklch(0.55 0.22 264)',
+      href: '/admin/order',
+    },
+    {
+      label: 'Customers',
+      value: metrics.customers.value.toLocaleString(),
+      delta: metrics.customers.delta,
+      icon: Users,
+      accent: 'oklch(0.72 0.16 158)',
+      href: '/admin/customer',
+    },
+    {
+      label: 'Avg. Order Value',
+      value: currency(metrics.avgOrder.value),
+      delta: metrics.avgOrder.delta,
+      icon: CreditCard,
+      accent: 'oklch(0.77 0.16 70)',
+      href: '/admin/payment',
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-6">
       {/* Page header */}
@@ -60,7 +96,7 @@ export default function DashboardPage() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
             <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
           </span>
-          Live · Jan 1 – Dec 31, 2026
+          Live · {new Date().getFullYear()}
         </Badge>
       </header>
 
@@ -78,23 +114,44 @@ export default function DashboardPage() {
             <CardTitle>Revenue & Orders</CardTitle>
             <CardDescription>Monthly performance across the year</CardDescription>
             <CardAction>
-              <Badge variant="secondary" className="gap-1 text-emerald-600 dark:text-emerald-400">
-                <ArrowUpRight className="size-3" /> 18.2%
+              <Badge
+                variant="secondary"
+                className={cn(
+                  'gap-1',
+                  metrics.revenue.delta >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                )}
+              >
+                {metrics.revenue.delta >= 0 ? (
+                  <ArrowUpRight className="size-3" />
+                ) : (
+                  <ArrowDownRight className="size-3" />
+                )}
+                {Math.abs(metrics.revenue.delta)}%
               </Badge>
             </CardAction>
           </CardHeader>
           <CardContent>
-            <RevenueChart />
+            <RevenueChart data={data.revenueSeries} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="border-b">
             <CardTitle>Sales by Category</CardTitle>
-            <CardDescription>Units sold this month</CardDescription>
+            <CardDescription>Units sold across your catalog</CardDescription>
+            <CardAction>
+              <Link
+                href="/admin/categories"
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                View all
+              </Link>
+            </CardAction>
           </CardHeader>
           <CardContent>
-            <CategoryChart />
+            <CategoryChart data={data.categorySeries} />
           </CardContent>
         </Card>
       </div>
@@ -105,6 +162,14 @@ export default function DashboardPage() {
           <CardHeader className="border-b">
             <CardTitle>Recent Orders</CardTitle>
             <CardDescription>Latest transactions from your store</CardDescription>
+            <CardAction>
+              <Link
+                href="/admin/order"
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                View all
+              </Link>
+            </CardAction>
           </CardHeader>
           <CardContent className="px-0">
             <Table>
@@ -118,7 +183,7 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentOrders.map((o) => (
+                {data.recentOrders.map((o) => (
                   <TableRow key={o.id}>
                     <TableCell className="pl-6 font-medium tabular-nums">{o.id}</TableCell>
                     <TableCell>
@@ -136,6 +201,13 @@ export default function DashboardPage() {
                     <TableCell className="pr-6 text-right text-muted-foreground">{o.date}</TableCell>
                   </TableRow>
                 ))}
+                {data.recentOrders.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                      No orders yet.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -144,20 +216,28 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-4">
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Weekly Traffic</CardTitle>
-              <CardDescription>Visitors over the last 7 days</CardDescription>
+              <CardTitle>Weekly Orders</CardTitle>
+              <CardDescription>Orders placed over the last 7 days</CardDescription>
             </CardHeader>
             <CardContent>
-              <TrafficChart />
+              <WeeklyOrdersChart data={data.ordersByDay} />
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="border-b">
               <CardTitle>Top Products</CardTitle>
+              <CardAction>
+                <Link
+                  href="/admin/product"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  View all
+                </Link>
+              </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {topProducts.map((p, i) => {
+              {data.topProducts.map((p, i) => {
                 const up = p.trend >= 0
                 return (
                   <div key={p.name} className="flex items-center gap-3">
@@ -182,6 +262,11 @@ export default function DashboardPage() {
                   </div>
                 )
               })}
+              {data.topProducts.length === 0 && (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No sales recorded yet.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
