@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { LogOut, ShoppingBag, ShoppingCart, User } from "lucide-react"
+import { LogOut, ShoppingCart, User } from "lucide-react"
 
 import { signOutAction } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,12 @@ export function ShopHeader({ user, storeName = 'Your Store' }: ShopHeaderProps) 
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
         <Link href="/shop" className="flex items-center gap-2 font-semibold">
-          <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <ShoppingBag className="size-4" />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt={storeName}
+            className="size-9 rounded-full object-cover ring-1 ring-border/60"
+          />
           {storeName}
         </Link>
 
