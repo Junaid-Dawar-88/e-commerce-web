@@ -125,6 +125,8 @@ model Order {
   status          OrderStatus   @default(pending)
   seller          String        @default("")
   shippingAddress String        @default("")
+  // Payment proof screenshot (base64 data URL) uploaded for manual transfers.
+  paymentProof    String        @default("")
   items           OrderItem[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt

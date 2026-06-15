@@ -15,6 +15,15 @@ export const DEFAULT_SETTINGS = {
   maxOrder: '5000',
   productApproval: 'auto',
   methods: { Stripe: true, PayPal: true, Easypaisa: true, JazzCash: true },
+  // Manual bank/wallet transfer accounts shown at checkout. The customer
+  // transfers to the enabled accounts that have a number/IBAN filled in, then
+  // enters the Transaction ID; staff verify it and mark the order paid.
+  manualPayments: {
+    jazzcash: { enabled: true, title: '', number: '' },
+    easypaisa: { enabled: true, title: '', number: '' },
+    sadapay: { enabled: true, title: '', iban: '' },
+    bank: { enabled: true, bankName: '', title: '', number: '', iban: '' },
+  },
   stripeKey: 'pk_live_51Hxxxxxxxxxxxx',
   stripeSecret: 'sk_live_51Hxxxxxxxxxxxx',
   commission: '10',
@@ -26,6 +35,10 @@ export const DEFAULT_SETTINGS = {
   passwordPolicy: 'strong',
   rateLimiting: true,
   shipping: { standard: '5', express: '10', sameDay: '20' },
+  // Delivery charge applied at checkout and shown to the customer.
+  // `freeOver` of '0' means always charge; otherwise free once the subtotal
+  // reaches that amount.
+  delivery: { enabled: true, fee: '5', freeOver: '0' },
   taxEnabled: true,
   taxRate: '15',
   regionBased: true,

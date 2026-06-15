@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ShoppingBag } from "lucide-react"
+import { ShoppingBag, Upload } from "lucide-react"
 
 import { formatPrice } from "@/lib/format"
 import { Button } from "@/components/ui/button"
@@ -19,12 +19,87 @@ type Defaults = {
   address: string
 }
 
-export function CheckoutForm({ defaults }: { defaults: Defaults }) {
+// A manual bank/wallet transfer method, configured in admin Settings.
+export type PaymentMethod = {
+  key: string
+  label: string
+  details: { label: string; value: string }[]
+}
+
+// Read a file and downscale it (max 1200px wide, JPEG) so the payment-proof
+// screenshot stored on the order stays small.
+async function fileToCompressedDataUrl(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+  return await new Promise<string>((resolve) => {
+    const img = new window.Image()
+    img.onload = () => {
+      const maxW = 1200
+      const scale = Math.min(1, maxW / img.width)
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement("canvas")
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return resolve(dataUrl)
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL("image/jpeg", 0.8))
+    }
+    img.onerror = () => resolve(dataUrl)
+    img.src = dataUrl
+  })
+}
+
+type Delivery = { enabled: boolean; fee: number; freeOver: number }
+
+export function CheckoutForm({
+  defaults,
+  methods = [],
+  delivery,
+}: {
+  defaults: Defaults
+  methods?: PaymentMethod[]
+  delivery?: Delivery
+}) {
   const router = useRouter()
   const { items, subtotal, clear } = useCart()
-  const [payment, setPayment] = React.useState<"cod" | "online">("cod")
+  // "cod" or one of the manual method keys.
+  const [payment, setPayment] = React.useState<string>("cod")
+  const [tid, setTid] = React.useState("")
+  const [proof, setProof] = React.useState("")
+  const [proofName, setProofName] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
+
+  const selectedMethod = methods.find((m) => m.key === payment) ?? null
+
+  async function handleProof(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file.")
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("That image is too large (max 10MB).")
+      return
+    }
+    setError(null)
+    setProofName(file.name)
+    setProof(await fileToCompressedDataUrl(file))
+  }
+
+  // Delivery is free once the subtotal reaches `freeOver` (when > 0).
+  const deliveryFee =
+    delivery?.enabled && !(delivery.freeOver > 0 && subtotal >= delivery.freeOver)
+      ? delivery.fee
+      : 0
+  const total = subtotal + deliveryFee
 
   if (items.length === 0) {
     return (
@@ -59,18 +134,38 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
       return
     }
 
+    // Manual transfer methods require the Transaction ID and a screenshot
+    // so staff can verify the payment.
+    const ref = tid.trim()
+    if (selectedMethod && !ref) {
+      setError("Please enter the Transaction ID from your transfer.")
+      setPending(false)
+      return
+    }
+    if (selectedMethod && !proof) {
+      setError("Please upload a screenshot of your transfer.")
+      setPending(false)
+      return
+    }
+
     const shippingAddress = [name, phone, address].filter(Boolean).join(" — ")
+
+    const paymentMethod = selectedMethod
+      ? `${selectedMethod.label} · TID: ${ref}`
+      : "Cash on Delivery"
+    const paymentStatus = selectedMethod ? "unpaid" : "cod"
 
     try {
       const res = await fetch("/api/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: subtotal.toFixed(2),
+          amount: total.toFixed(2),
           status: "pending",
-          paymentMethod: payment === "cod" ? "Cash on Delivery" : "Online (pay later)",
-          paymentStatus: payment === "cod" ? "cod" : "unpaid",
+          paymentMethod,
+          paymentStatus,
           shippingAddress,
+          paymentProof: selectedMethod ? proof : "",
           items: items.map((i) => ({
             productId: i.productId,
             name: i.name,
@@ -154,13 +249,90 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
               checked={payment === "cod"}
               onChange={() => setPayment("cod")}
             />
-            <PaymentOption
-              label="Online / Card (pay later)"
-              description="We'll confirm your order and follow up for payment."
-              checked={payment === "online"}
-              onChange={() => setPayment("online")}
-            />
+
+            {methods.map((m) => (
+              <PaymentOption
+                key={m.key}
+                label={m.label}
+                description="Transfer the total, then enter your Transaction ID below."
+                checked={payment === m.key}
+                onChange={() => setPayment(m.key)}
+              />
+            ))}
           </div>
+
+          {/* Account details + Transaction ID for the selected transfer method */}
+          {selectedMethod && (
+            <div className="mt-4 space-y-4 rounded-lg border border-border bg-muted/40 p-4">
+              <div>
+                <p className="text-sm font-medium">
+                  Send {formatPrice(total)} to this {selectedMethod.label} account
+                </p>
+                <dl className="mt-3 space-y-2 text-sm">
+                  {selectedMethod.details.map((d) => (
+                    <div key={d.label} className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">{d.label}</dt>
+                      <dd className="font-medium tabular-nums">{d.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tid">Transaction ID (TID)</Label>
+                <Input
+                  id="tid"
+                  name="tid"
+                  value={tid}
+                  onChange={(e) => setTid(e.target.value)}
+                  placeholder="e.g. 1234567890"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  After transferring, paste the Transaction ID from your payment
+                  receipt. We&apos;ll verify it and confirm your order.
+                </p>
+              </div>
+
+              {/* Required payment screenshot */}
+              <div className="space-y-2">
+                <Label htmlFor="proof">Payment screenshot</Label>
+                <input
+                  id="proof"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProof}
+                  className="hidden"
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById("proof")?.click()}
+                  >
+                    <Upload className="size-4" />
+                    {proof ? "Change screenshot" : "Upload screenshot"}
+                  </Button>
+                  {proofName && (
+                    <span className="min-w-0 truncate text-xs text-muted-foreground">
+                      {proofName}
+                    </span>
+                  )}
+                </div>
+                {proof && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={proof}
+                    alt="Payment screenshot preview"
+                    className="mt-2 max-h-48 rounded-lg border border-border object-contain"
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Required — attach a screenshot of your transfer so we can verify
+                  and confirm your order.
+                </p>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
 
@@ -186,9 +358,21 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
               </li>
             ))}
           </ul>
-          <div className="mt-4 flex justify-between border-t border-border/60 pt-4 text-base font-semibold">
-            <span>Total</span>
-            <span>{formatPrice(subtotal)}</span>
+          <div className="mt-4 space-y-2 border-t border-border/60 pt-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            {delivery?.enabled && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Delivery</span>
+                <span>{deliveryFee === 0 ? "Free" : formatPrice(deliveryFee)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-border/60 pt-2 text-base font-semibold">
+              <span>Total</span>
+              <span>{formatPrice(total)}</span>
+            </div>
           </div>
 
           {error && (
@@ -241,7 +425,7 @@ function PaymentOption({
         name="payment"
         checked={checked}
         onChange={onChange}
-        className="mt-1 accent-[var(--primary)]"
+        className="mt-1 accent-primary"
       />
       <span>
         <span className="block text-sm font-medium">{label}</span>

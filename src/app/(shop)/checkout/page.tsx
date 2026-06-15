@@ -3,8 +3,9 @@ import Link from "next/link"
 
 import prisma from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/rbac"
+import { getSettings } from "@/services/setting/setting"
 import { Button } from "@/components/ui/button"
-import { CheckoutForm } from "@/components/shop/checkout-form"
+import { CheckoutForm, type PaymentMethod } from "@/components/shop/checkout-form"
 
 export const metadata: Metadata = {
   title: "Checkout — Your Store",
@@ -65,6 +66,56 @@ export default async function CheckoutPage() {
     .filter(Boolean)
     .join(", ")
 
+  // Build the manual transfer methods from store settings — only ones that are
+  // enabled and have an account number / IBAN filled in show up at checkout.
+  const { manualPayments: mp, delivery } = await getSettings()
+  const clean = (rows: { label: string; value: string }[]) =>
+    rows.filter((r) => r.value.trim())
+
+  const methods: PaymentMethod[] = []
+  if (mp.jazzcash.enabled && mp.jazzcash.number.trim()) {
+    methods.push({
+      key: "jazzcash",
+      label: "JazzCash",
+      details: clean([
+        { label: "Account title", value: mp.jazzcash.title },
+        { label: "JazzCash number", value: mp.jazzcash.number },
+      ]),
+    })
+  }
+  if (mp.easypaisa.enabled && mp.easypaisa.number.trim()) {
+    methods.push({
+      key: "easypaisa",
+      label: "Easypaisa",
+      details: clean([
+        { label: "Account title", value: mp.easypaisa.title },
+        { label: "Easypaisa number", value: mp.easypaisa.number },
+      ]),
+    })
+  }
+  if (mp.sadapay.enabled && mp.sadapay.iban.trim()) {
+    methods.push({
+      key: "sadapay",
+      label: "SadaPay",
+      details: clean([
+        { label: "Account title", value: mp.sadapay.title },
+        { label: "IBAN", value: mp.sadapay.iban },
+      ]),
+    })
+  }
+  if (mp.bank.enabled && (mp.bank.iban.trim() || mp.bank.number.trim())) {
+    methods.push({
+      key: "bank",
+      label: mp.bank.bankName ? `Bank Transfer · ${mp.bank.bankName}` : "Bank Transfer",
+      details: clean([
+        { label: "Bank", value: mp.bank.bankName },
+        { label: "Account title", value: mp.bank.title },
+        { label: "Account number", value: mp.bank.number },
+        { label: "IBAN", value: mp.bank.iban },
+      ]),
+    })
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
       <h1 className="mb-8 text-3xl font-bold tracking-tight md:text-4xl">
@@ -76,6 +127,12 @@ export default async function CheckoutPage() {
           email: customer?.email ?? user.email ?? "",
           phone: customer?.phone ?? "",
           address,
+        }}
+        methods={methods}
+        delivery={{
+          enabled: delivery.enabled,
+          fee: Number(delivery.fee) || 0,
+          freeOver: Number(delivery.freeOver) || 0,
         }}
       />
     </div>

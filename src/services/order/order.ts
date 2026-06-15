@@ -36,6 +36,7 @@ export async function createOrder(customerId: string, input: OrderInput) {
       status: input.status,
       seller: input.seller ?? "",
       shippingAddress: input.shippingAddress ?? "",
+      paymentProof: input.paymentProof ?? "",
       items: {
         create: (input.items ?? []).map((item) => ({
           productId: item.productId ?? null,

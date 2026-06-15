@@ -287,20 +287,60 @@ export function SettingsView() {
           )}
 
           {active === 'payments' && (
-            <SettingsCard title="Payment Settings">
-              <div>
-                <p className="mb-2 text-sm font-medium">Enabled Methods</p>
-                <div className="flex flex-wrap gap-4">
-                  {(Object.keys(s.methods) as (keyof typeof s.methods)[]).map((m) => (
-                    <CheckRow key={m} label={m} checked={s.methods[m]} onChange={(v) => set({ methods: { ...s.methods, [m]: v } })} />
-                  ))}
+            <div className="flex flex-col gap-6">
+              <SettingsCard title="Payment Settings">
+                <div>
+                  <p className="mb-2 text-sm font-medium">Enabled Methods</p>
+                  <div className="flex flex-wrap gap-4">
+                    {(Object.keys(s.methods) as (keyof typeof s.methods)[]).map((m) => (
+                      <CheckRow key={m} label={m} checked={s.methods[m]} onChange={(v) => set({ methods: { ...s.methods, [m]: v } })} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <Field label="Stripe Key"><Input value={s.stripeKey} onChange={(e) => set({ stripeKey: e.target.value })} className="h-9 font-mono text-xs" /></Field>
-              <Field label="Stripe Secret"><Input type="password" value={s.stripeSecret} onChange={(e) => set({ stripeSecret: e.target.value })} className="h-9 font-mono text-xs" /></Field>
-              <Field label="Commission (%)"><Input type="number" value={s.commission} onChange={(e) => set({ commission: e.target.value })} className="h-9" /></Field>
-              <ToggleRow label="Auto Refund" desc="Automatically process eligible refunds" checked={s.autoRefund} onChange={(v) => set({ autoRefund: v })} />
-            </SettingsCard>
+                <Field label="Stripe Key"><Input value={s.stripeKey} onChange={(e) => set({ stripeKey: e.target.value })} className="h-9 font-mono text-xs" /></Field>
+                <Field label="Stripe Secret"><Input type="password" value={s.stripeSecret} onChange={(e) => set({ stripeSecret: e.target.value })} className="h-9 font-mono text-xs" /></Field>
+                <Field label="Commission (%)"><Input type="number" value={s.commission} onChange={(e) => set({ commission: e.target.value })} className="h-9" /></Field>
+                <ToggleRow label="Auto Refund" desc="Automatically process eligible refunds" checked={s.autoRefund} onChange={(v) => set({ autoRefund: v })} />
+              </SettingsCard>
+
+              <SettingsCard title="Bank & Wallet Accounts (Manual Transfer)">
+                <p className="text-sm text-muted-foreground">
+                  Shown to customers at checkout. Fill in an account number / IBAN to make
+                  that method appear; leave it blank (or turn it off) to hide it. Customers
+                  transfer the amount and enter the Transaction ID, which you verify here.
+                </p>
+
+                {/* JazzCash */}
+                <div className="flex flex-col gap-3 rounded-lg border p-4">
+                  <ToggleRow label="JazzCash" desc="Mobile wallet" checked={s.manualPayments.jazzcash.enabled} onChange={(v) => set({ manualPayments: { ...s.manualPayments, jazzcash: { ...s.manualPayments.jazzcash, enabled: v } } })} />
+                  <Field label="Account title"><Input value={s.manualPayments.jazzcash.title} onChange={(e) => set({ manualPayments: { ...s.manualPayments, jazzcash: { ...s.manualPayments.jazzcash, title: e.target.value } } })} className="h-9" placeholder="Account holder name" /></Field>
+                  <Field label="JazzCash number"><Input value={s.manualPayments.jazzcash.number} onChange={(e) => set({ manualPayments: { ...s.manualPayments, jazzcash: { ...s.manualPayments.jazzcash, number: e.target.value } } })} className="h-9" placeholder="03XX XXXXXXX" /></Field>
+                </div>
+
+                {/* Easypaisa */}
+                <div className="flex flex-col gap-3 rounded-lg border p-4">
+                  <ToggleRow label="Easypaisa" desc="Mobile wallet" checked={s.manualPayments.easypaisa.enabled} onChange={(v) => set({ manualPayments: { ...s.manualPayments, easypaisa: { ...s.manualPayments.easypaisa, enabled: v } } })} />
+                  <Field label="Account title"><Input value={s.manualPayments.easypaisa.title} onChange={(e) => set({ manualPayments: { ...s.manualPayments, easypaisa: { ...s.manualPayments.easypaisa, title: e.target.value } } })} className="h-9" placeholder="Account holder name" /></Field>
+                  <Field label="Easypaisa number"><Input value={s.manualPayments.easypaisa.number} onChange={(e) => set({ manualPayments: { ...s.manualPayments, easypaisa: { ...s.manualPayments.easypaisa, number: e.target.value } } })} className="h-9" placeholder="03XX XXXXXXX" /></Field>
+                </div>
+
+                {/* SadaPay */}
+                <div className="flex flex-col gap-3 rounded-lg border p-4">
+                  <ToggleRow label="SadaPay" desc="Digital bank — transfer to IBAN" checked={s.manualPayments.sadapay.enabled} onChange={(v) => set({ manualPayments: { ...s.manualPayments, sadapay: { ...s.manualPayments.sadapay, enabled: v } } })} />
+                  <Field label="Account title"><Input value={s.manualPayments.sadapay.title} onChange={(e) => set({ manualPayments: { ...s.manualPayments, sadapay: { ...s.manualPayments.sadapay, title: e.target.value } } })} className="h-9" placeholder="Account holder name" /></Field>
+                  <Field label="SadaPay IBAN"><Input value={s.manualPayments.sadapay.iban} onChange={(e) => set({ manualPayments: { ...s.manualPayments, sadapay: { ...s.manualPayments.sadapay, iban: e.target.value } } })} className="h-9 font-mono" placeholder="PK00SADA0000000000000000" /></Field>
+                </div>
+
+                {/* Bank */}
+                <div className="flex flex-col gap-3 rounded-lg border p-4">
+                  <ToggleRow label="Bank Transfer" desc="Direct bank account" checked={s.manualPayments.bank.enabled} onChange={(v) => set({ manualPayments: { ...s.manualPayments, bank: { ...s.manualPayments.bank, enabled: v } } })} />
+                  <Field label="Bank name"><Input value={s.manualPayments.bank.bankName} onChange={(e) => set({ manualPayments: { ...s.manualPayments, bank: { ...s.manualPayments.bank, bankName: e.target.value } } })} className="h-9" placeholder="e.g. Meezan Bank" /></Field>
+                  <Field label="Account title"><Input value={s.manualPayments.bank.title} onChange={(e) => set({ manualPayments: { ...s.manualPayments, bank: { ...s.manualPayments.bank, title: e.target.value } } })} className="h-9" placeholder="Account holder name" /></Field>
+                  <Field label="Account number"><Input value={s.manualPayments.bank.number} onChange={(e) => set({ manualPayments: { ...s.manualPayments, bank: { ...s.manualPayments.bank, number: e.target.value } } })} className="h-9" placeholder="Account number" /></Field>
+                  <Field label="IBAN"><Input value={s.manualPayments.bank.iban} onChange={(e) => set({ manualPayments: { ...s.manualPayments, bank: { ...s.manualPayments.bank, iban: e.target.value } } })} className="h-9 font-mono" placeholder="PK00XXXX0000000000000000" /></Field>
+                </div>
+              </SettingsCard>
+            </div>
           )}
 
           {active === 'users' && (
@@ -374,11 +414,23 @@ export function SettingsView() {
           )}
 
           {active === 'shipping' && (
-            <SettingsCard title="Shipping">
-              <Field label="Standard ($)"><Input type="number" value={s.shipping.standard} onChange={(e) => set({ shipping: { ...s.shipping, standard: e.target.value } })} className="h-9" /></Field>
-              <Field label="Express ($)"><Input type="number" value={s.shipping.express} onChange={(e) => set({ shipping: { ...s.shipping, express: e.target.value } })} className="h-9" /></Field>
-              <Field label="Same Day ($)"><Input type="number" value={s.shipping.sameDay} onChange={(e) => set({ shipping: { ...s.shipping, sameDay: e.target.value } })} className="h-9" /></Field>
-            </SettingsCard>
+            <div className="flex flex-col gap-6">
+              <SettingsCard title="Delivery Charge">
+                <p className="text-sm text-muted-foreground">
+                  Applied at checkout and shown to the customer. Turn it off for free
+                  delivery, or set &ldquo;Free delivery over&rdquo; so large orders ship free.
+                </p>
+                <ToggleRow label="Charge for delivery" desc="Add a delivery fee to the order total" checked={s.delivery.enabled} onChange={(v) => set({ delivery: { ...s.delivery, enabled: v } })} />
+                <Field label="Delivery charge ($)"><Input type="number" value={s.delivery.fee} onChange={(e) => set({ delivery: { ...s.delivery, fee: e.target.value } })} className="h-9" disabled={!s.delivery.enabled} /></Field>
+                <Field label="Free delivery over ($)"><Input type="number" value={s.delivery.freeOver} onChange={(e) => set({ delivery: { ...s.delivery, freeOver: e.target.value } })} className="h-9" disabled={!s.delivery.enabled} /></Field>
+              </SettingsCard>
+
+              <SettingsCard title="Shipping Rates">
+                <Field label="Standard ($)"><Input type="number" value={s.shipping.standard} onChange={(e) => set({ shipping: { ...s.shipping, standard: e.target.value } })} className="h-9" /></Field>
+                <Field label="Express ($)"><Input type="number" value={s.shipping.express} onChange={(e) => set({ shipping: { ...s.shipping, express: e.target.value } })} className="h-9" /></Field>
+                <Field label="Same Day ($)"><Input type="number" value={s.shipping.sameDay} onChange={(e) => set({ shipping: { ...s.shipping, sameDay: e.target.value } })} className="h-9" /></Field>
+              </SettingsCard>
+            </div>
           )}
 
           {active === 'taxes' && (

@@ -22,6 +22,7 @@ export type Order = {
   date: string
   daysAgo: number
   shippingAddress: string
+  paymentProof: string
   items: LineItem[]
 }
 
@@ -45,6 +46,7 @@ export type OrderRow = {
   status: OrderStatus
   seller: string
   shippingAddress: string
+  paymentProof?: string
   createdAt: Date | string
   customer?: { name: string; email: string } | null
   items: OrderItemRow[]
@@ -73,6 +75,7 @@ export function mapOrder(row: OrderRow): Order {
     }),
     daysAgo,
     shippingAddress: row.shippingAddress,
+    paymentProof: row.paymentProof ?? '',
     items: row.items.map((it) => ({
       name: it.name,
       variant: it.variant,

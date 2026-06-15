@@ -18,6 +18,7 @@ export type OrderInput = {
   status?: OrderStatus;
   seller?: string;
   shippingAddress?: string;
+  paymentProof?: string;
   items?: OrderItemInput[];
 };
 
